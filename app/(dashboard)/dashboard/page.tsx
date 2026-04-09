@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { AppHeader } from "@/components/app-header";
 import { RiskBadge } from "@/components/risk-badge";
 import { ClickableTableRow } from "@/components/clickable-table-row";
 import { Button } from "@/components/ui/button";
@@ -41,9 +40,7 @@ export default async function DashboardPage() {
   const recent = assessments.slice(0, 5);
 
   return (
-    <div className="min-h-screen bg-background">
-      <AppHeader />
-      <main className="mx-auto max-w-6xl space-y-10 px-6 py-10">
+    <main className="mx-auto max-w-6xl space-y-10 px-6 py-10">
         {/* ── Welcome ─────────────────────────────────────────────────── */}
         <div>
           <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
@@ -123,8 +120,7 @@ export default async function DashboardPage() {
           <StartNewAssessmentCTA />
           <QuickReferenceCard />
         </section>
-      </main>
-    </div>
+    </main>
   );
 }
 

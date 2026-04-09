@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { AppHeader } from "@/components/app-header";
 import { RiskBadge } from "@/components/risk-badge";
 import { ClickableTableRow } from "@/components/clickable-table-row";
 import { Button } from "@/components/ui/button";
@@ -51,9 +50,7 @@ export default async function HistoryPage({
   );
 
   return (
-    <div className="min-h-screen bg-background">
-      <AppHeader />
-      <main className="mx-auto max-w-6xl space-y-8 px-6 py-10">
+    <main className="mx-auto max-w-6xl space-y-8 px-6 py-10">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
             Assessment History
@@ -129,8 +126,7 @@ export default async function HistoryPage({
             {hasFilters ? " shown (filters active)" : ""}
           </p>
         )}
-      </main>
-    </div>
+    </main>
   );
 }
 

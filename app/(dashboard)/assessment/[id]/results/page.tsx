@@ -100,7 +100,7 @@ export default async function ResultsPage({
   const assessedAt = assessment.updated_at ?? assessment.created_at;
 
   return (
-    <div className="min-h-screen bg-background">
+    <>
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <header className="border-b bg-card">
         <div className="mx-auto max-w-5xl px-6 py-8">
@@ -198,7 +198,7 @@ export default async function ResultsPage({
           </Link>
         </section>
       </main>
-    </div>
+    </>
   );
 }
 

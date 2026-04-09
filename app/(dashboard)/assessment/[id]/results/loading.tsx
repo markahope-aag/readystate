@@ -3,8 +3,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ResultsLoading() {
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
+    <>
+      {/* Page-level report header (distinct from AppHeader in layout) */}
       <header className="border-b bg-card">
         <div className="mx-auto max-w-5xl px-6 py-8">
           <div className="flex items-start justify-between gap-4">
@@ -77,6 +77,6 @@ export default function ResultsLoading() {
           </Card>
         </section>
       </main>
-    </div>
+    </>
   );
 }
