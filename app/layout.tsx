@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
-import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -17,8 +16,9 @@ const geistMono = localFont({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://readystate.now"),
-  title: "ReadyState",
-  description: "ReadyState by Kestralis",
+  title: "ReadyState — SB 553 Compliance Assessment",
+  description:
+    "Score your workplace violence prevention program against California SB 553 and the ASIS professional standard. Free, no sign-up required.",
 };
 
 export default function RootLayout({
@@ -27,15 +27,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
-      <html lang="en">
-        <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-        >
-          {children}
-          <Toaster richColors position="top-right" />
-        </body>
-      </html>
-    </ClerkProvider>
+    <html lang="en">
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        {children}
+        <Toaster richColors position="top-right" />
+      </body>
+    </html>
   );
 }

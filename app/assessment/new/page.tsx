@@ -1,7 +1,9 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { Wizard, type WizardInitialAssessment, type WizardInitialResponse } from "./_components/wizard";
+import { createServiceRoleClient } from "@/lib/supabase/server";
+import {
+  Wizard,
+  type WizardInitialAssessment,
+  type WizardInitialResponse,
+} from "./_components/wizard";
 
 export const dynamic = "force-dynamic";
 
@@ -10,20 +12,20 @@ interface PageProps {
 }
 
 /**
- * Assessment wizard entry point. If a ?id=<uuid> query parameter is present
- * and belongs to the current user, the wizard resumes from the stored
- * responses. Otherwise it starts fresh at the Organization Info step.
+ * Assessment wizard entry point. Fully public — no auth required.
+ *
+ * If a ?id=<uuid> query parameter is present, the wizard resumes from
+ * the stored responses. Otherwise it starts fresh at the Organization
+ * Info step. The assessment UUID is the effective bearer token —
+ * anyone with it can view or continue the assessment.
  */
 export default async function NewAssessmentPage({ searchParams }: PageProps) {
-  const { userId } = await auth();
-  if (!userId) redirect("/");
-
   const { id: assessmentId } = await searchParams;
   let initialAssessment: WizardInitialAssessment | null = null;
   let initialResponses: WizardInitialResponse[] = [];
 
   if (assessmentId) {
-    const supabase = await createClient();
+    const supabase = createServiceRoleClient();
 
     const { data: assessment } = await supabase
       .from("assessments")

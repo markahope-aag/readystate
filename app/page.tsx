@@ -1,22 +1,8 @@
 import Link from "next/link";
-import { auth, currentUser } from "@clerk/nextjs/server";
-import {
-  Show,
-  SignInButton,
-  SignUpButton,
-  UserButton,
-} from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export const dynamic = "force-dynamic";
-
-export default async function Home() {
-  const { userId } = await auth();
-  const user = userId ? await currentUser() : null;
-  const displayName =
-    user?.firstName ?? user?.emailAddresses[0]?.emailAddress ?? null;
-
+export default function Home() {
   return (
     <div className="min-h-screen bg-background">
       {/* ═══ Top nav ═══════════════════════════════════════════════════ */}
@@ -31,38 +17,21 @@ export default async function Home() {
               <p className="text-[10px] text-slate-400">by Kestralis</p>
             </div>
           </Link>
-          <nav className="flex items-center gap-4 text-sm">
-            <Show when="signed-in">
-              <Link
-                href="/dashboard"
-                className="hidden text-slate-300 hover:text-white md:inline"
+          <div className="flex items-center gap-3">
+            <Link href="/assessment/new">
+              <Button
+                size="sm"
+                className="bg-white text-slate-900 hover:bg-slate-200"
               >
-                Dashboard
-              </Link>
-              <UserButton />
-            </Show>
-            <Show when="signed-out">
-              <SignInButton mode="modal">
-                <button className="text-slate-300 hover:text-white">
-                  Sign in
-                </button>
-              </SignInButton>
-              <SignUpButton mode="modal">
-                <Button
-                  size="sm"
-                  className="bg-white text-slate-900 hover:bg-slate-200"
-                >
-                  Get started
-                </Button>
-              </SignUpButton>
-            </Show>
-          </nav>
+                Start assessment
+              </Button>
+            </Link>
+          </div>
         </div>
       </header>
 
       {/* ═══ Hero ══════════════════════════════════════════════════════ */}
       <section className="relative overflow-hidden bg-slate-950 pt-24 text-white">
-        {/* subtle grid background */}
         <div
           className="absolute inset-0 opacity-[0.04]"
           style={{
@@ -72,7 +41,6 @@ export default async function Home() {
           }}
           aria-hidden
         />
-        {/* soft radial glow */}
         <div
           className="absolute inset-x-0 top-0 h-[500px] opacity-40"
           style={{
@@ -94,51 +62,22 @@ export default async function Home() {
             California Labor Code §6401.9 requires every employer in the
             state to have a written Workplace Violence Prevention Plan,
             documented training, and a Violent Incident Log. ReadyState
-            scores your program, surfaces the gaps, and gives you a
-            prioritized remediation path.
+            scores your program, surfaces the gaps, and emails a prioritized
+            remediation report.
           </p>
 
           <div className="mt-12 flex flex-wrap items-center gap-3">
-            <Show when="signed-in">
-              <Link href="/assessment/new">
-                <Button
-                  size="lg"
-                  className="bg-white text-slate-900 hover:bg-slate-200"
-                >
-                  {displayName
-                    ? `Start assessment, ${displayName}`
-                    : "Start Free Assessment"}
-                </Button>
-              </Link>
-              <Link href="/dashboard">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="border-white/20 bg-transparent text-white hover:bg-white/10 hover:text-white"
-                >
-                  Go to dashboard
-                </Button>
-              </Link>
-            </Show>
-            <Show when="signed-out">
-              <SignUpButton mode="modal">
-                <Button
-                  size="lg"
-                  className="bg-white text-slate-900 hover:bg-slate-200"
-                >
-                  Start Free Assessment
-                </Button>
-              </SignUpButton>
-              <SignInButton mode="modal">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="border-white/20 bg-transparent text-white hover:bg-white/10 hover:text-white"
-                >
-                  Sign in
-                </Button>
-              </SignInButton>
-            </Show>
+            <Link href="/assessment/new">
+              <Button
+                size="lg"
+                className="bg-white text-slate-900 hover:bg-slate-200"
+              >
+                Start My Assessment
+              </Button>
+            </Link>
+            <p className="text-sm text-slate-400">
+              Free · No sign-up · ~45 minutes
+            </p>
           </div>
 
           {/* Trust strip */}
@@ -156,7 +95,7 @@ export default async function Home() {
             <TrustStat
               value="< 60 min"
               label="Typical completion"
-              detail="Per site, resume any time"
+              detail="Per site, PDF delivered by email"
             />
           </dl>
         </div>
@@ -176,7 +115,7 @@ export default async function Home() {
               Each assessment scores your program against the statutory
               minimum, the professional standard, and the physical conditions
               of a specific site. A gap in any dimension is surfaced with
-              concrete remediation guidance.
+              concrete remediation guidance in the report we email you.
             </p>
           </div>
 
@@ -215,7 +154,7 @@ export default async function Home() {
                 How it works
               </p>
               <h2 className="mt-4 text-3xl font-bold tracking-tight">
-                Assess once. Surface the gaps. Remediate with intent.
+                Assess once. Get the report. Remediate with intent.
               </h2>
             </div>
             <div className="space-y-8">
@@ -231,13 +170,13 @@ export default async function Home() {
               />
               <Step
                 n={3}
-                title="Get your report"
-                body="Weighted scores, an overall risk rating from low to critical, a gap list sorted by severity, and concrete remediation guidance for every critical failure."
+                title="Get your report by email"
+                body="Enter your name, email, and role on the final page. We generate a Kestralis-branded PDF report with scores, gap analysis, and remediation guidance — delivered to your inbox in minutes."
               />
               <Step
                 n={4}
                 title="Fix and re-assess"
-                body="Close the gaps, re-run the assessment, and track your score over time. Records are retained to match the five-year SB 553 requirement."
+                body="Close the gaps, re-run the assessment whenever you want, and track your score over time."
               />
             </div>
           </div>
@@ -257,34 +196,21 @@ export default async function Home() {
         />
         <div className="relative mx-auto max-w-4xl px-6 py-24 text-center md:py-32">
           <h2 className="text-3xl font-bold tracking-tight md:text-5xl">
-            Start your first assessment now.
+            Start your assessment now.
           </h2>
           <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-300">
-            Free to use. No credit card. Your first assessment takes under
-            an hour and gives you a complete gap list with prioritized
-            next steps.
+            Free. No account required. The report lands in your inbox
+            within minutes of finishing the questions.
           </p>
-          <div className="mt-10 flex flex-wrap justify-center gap-3">
-            <Show when="signed-out">
-              <SignUpButton mode="modal">
-                <Button
-                  size="lg"
-                  className="bg-white text-slate-900 hover:bg-slate-200"
-                >
-                  Start Free Assessment
-                </Button>
-              </SignUpButton>
-            </Show>
-            <Show when="signed-in">
-              <Link href="/assessment/new">
-                <Button
-                  size="lg"
-                  className="bg-white text-slate-900 hover:bg-slate-200"
-                >
-                  Start Free Assessment
-                </Button>
-              </Link>
-            </Show>
+          <div className="mt-10 flex justify-center">
+            <Link href="/assessment/new">
+              <Button
+                size="lg"
+                className="bg-white text-slate-900 hover:bg-slate-200"
+              >
+                Start My Assessment
+              </Button>
+            </Link>
           </div>
         </div>
       </section>

@@ -1,7 +1,6 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/server";
 import { calculateScores, type ScoreResult } from "@/lib/assessment/scoring";
 
 type ActionResult<T> =
@@ -20,17 +19,17 @@ export interface OrgInfoInput {
 }
 
 /**
- * Step 0 — creates an organizations row and an assessments row tying the
- * current Clerk user to the site being assessed. Returns both IDs so the
- * wizard can persist the assessment ID in the URL for resume.
+ * Step 0 — creates an organizations row and an assessments row for the
+ * anonymous user. Returns both IDs so the wizard can persist the
+ * assessment ID in the URL for resume.
+ *
+ * Service-role Supabase writes bypass RLS. UUIDs are the effective
+ * bearer — anyone with the assessment id can read/write that row.
  */
 export async function createOrgAndAssessment(
   input: OrgInfoInput,
 ): Promise<ActionResult<{ assessmentId: string; orgId: string }>> {
-  const { userId } = await auth();
-  if (!userId) return { ok: false, error: "Not authenticated" };
-
-  const supabase = await createClient();
+  const supabase = createServiceRoleClient();
 
   const { data: org, error: orgError } = await supabase
     .from("organizations")
@@ -54,7 +53,7 @@ export async function createOrgAndAssessment(
     .from("assessments")
     .insert({
       org_id: org.id,
-      clerk_user_id: userId,
+      clerk_user_id: null,
       site_name: input.siteName,
       site_address: input.siteAddress,
       status: "in_progress",
@@ -74,7 +73,7 @@ export async function createOrgAndAssessment(
 
 /**
  * Steps 1–3 — idempotent upsert of a single question response. Relies on
- * the unique constraint (assessment_id, question_id) added in migration 003.
+ * the unique constraint (assessment_id, question_id) from migration 003.
  */
 export async function saveResponse(input: {
   assessmentId: string;
@@ -82,7 +81,7 @@ export async function saveResponse(input: {
   response: ResponseValue;
   notes?: string | null;
 }): Promise<ActionResult<null>> {
-  const supabase = await createClient();
+  const supabase = createServiceRoleClient();
   const { error } = await supabase.from("assessment_responses").upsert(
     {
       assessment_id: input.assessmentId,
@@ -99,8 +98,7 @@ export async function saveResponse(input: {
 
 /**
  * Step 4 — compute and persist scores, then flip assessment status to
- * complete. Delegates to `calculateScores` in the scoring engine, which
- * handles the fetch, math, upsert, and status update in one operation.
+ * complete. Delegates to `calculateScores` in the scoring engine.
  */
 export async function finalizeAssessment(
   assessmentId: string,

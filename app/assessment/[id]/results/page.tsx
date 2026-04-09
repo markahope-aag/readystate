@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { auth } from "@clerk/nextjs/server";
-import { notFound, redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { notFound } from "next/navigation";
+import { createServiceRoleClient } from "@/lib/supabase/server";
 import {
   getQuestionById,
   sectionMeta,
@@ -51,11 +50,8 @@ export default async function ResultsPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { userId } = await auth();
-  if (!userId) redirect("/");
-
   const { id } = await params;
-  const supabase = await createClient();
+  const supabase = createServiceRoleClient();
 
   const { data: assessment } = await supabase
     .from("assessments")

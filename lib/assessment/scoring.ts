@@ -22,7 +22,7 @@
  *   - Risk level: 0–49 critical, 50–69 high, 70–84 moderate, 85–100 low
  */
 
-import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/server";
 import {
   questions as defaultQuestionBank,
   type Question,
@@ -265,8 +265,8 @@ export function computeScores(
 
 /**
  * End-to-end scoring: fetch responses → compute → persist scores → flip
- * assessment status to complete. Runs in the caller's Clerk auth context,
- * so RLS gates the fetch and writes.
+ * assessment status to complete. Uses the Supabase service role since
+ * ReadyState runs anonymously — no per-user auth context to inherit.
  *
  * Throws on any Supabase error. Caller (e.g. the wizard's finalize action)
  * should catch and surface a user-friendly error.
@@ -274,7 +274,7 @@ export function computeScores(
 export async function calculateScores(
   assessmentId: string,
 ): Promise<ScoreResult> {
-  const supabase = await createClient();
+  const supabase = createServiceRoleClient();
 
   // 1. Fetch all responses for this assessment
   const { data: responses, error: fetchError } = await supabase

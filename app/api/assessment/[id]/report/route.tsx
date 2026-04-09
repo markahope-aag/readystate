@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { renderToBuffer } from "@react-pdf/renderer";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/server";
 import { getQuestionById } from "@/lib/assessment/questions";
 import type { RiskLevel } from "@/lib/assessment/scoring";
 import {
@@ -17,19 +16,15 @@ export const runtime = "nodejs";
  *
  * Generates a Kestralis-branded PDF report for a single assessment and
  * streams it back as application/pdf with an inline Content-Disposition
- * filename. Scoped by RLS to the authenticated user's own assessments.
+ * filename. Public — UUID acts as the bearer. Also reused internally
+ * by the thank-you email-send flow.
  */
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
   const { id: assessmentId } = await params;
-  const supabase = await createClient();
+  const supabase = createServiceRoleClient();
 
   const { data: assessment, error: assessmentError } = await supabase
     .from("assessments")

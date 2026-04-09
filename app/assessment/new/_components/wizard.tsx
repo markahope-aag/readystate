@@ -183,7 +183,7 @@ export function Wizard({
     [assessmentId, responses],
   );
 
-  // ─── Step 4: finalize ────────────────────────────────────────────────────
+  // ─── Step 4: finalize → redirect to thank-you page ─────────────────────
   const handleFinalize = async () => {
     if (!assessmentId) return;
     const result = await finalizeAssessment(assessmentId);
@@ -192,6 +192,7 @@ export function Wizard({
       return;
     }
     toast.success("Assessment submitted");
+    router.push(`/assessment/${assessmentId}/thank-you`);
   };
 
   // ─── Gating: can user click Next on current category? ──────────────────
