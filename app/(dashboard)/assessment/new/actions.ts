@@ -2,6 +2,7 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@/lib/supabase/server";
+import { calculateScores, type ScoreResult } from "@/lib/assessment/scoring";
 
 type ActionResult<T> =
   | { ok: true; data: T }
@@ -97,18 +98,20 @@ export async function saveResponse(input: {
 }
 
 /**
- * Step 4 — flip assessment status to complete. Scoring is computed by a
- * separate flow (not yet built).
+ * Step 4 — compute and persist scores, then flip assessment status to
+ * complete. Delegates to `calculateScores` in the scoring engine, which
+ * handles the fetch, math, upsert, and status update in one operation.
  */
 export async function finalizeAssessment(
   assessmentId: string,
-): Promise<ActionResult<null>> {
-  const supabase = createClient();
-  const { error } = await supabase
-    .from("assessments")
-    .update({ status: "complete", updated_at: new Date().toISOString() })
-    .eq("id", assessmentId);
-
-  if (error) return { ok: false, error: error.message };
-  return { ok: true, data: null };
+): Promise<ActionResult<ScoreResult>> {
+  try {
+    const result = await calculateScores(assessmentId);
+    return { ok: true, data: result };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Failed to finalize assessment",
+    };
+  }
 }
