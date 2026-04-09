@@ -1,18 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "env": {
-    "NEXT_PUBLIC_APP_URL": "@next_public_app_url",
-    "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": "@next_public_clerk_publishable_key",
-    "NEXT_PUBLIC_CLERK_SIGN_IN_URL": "@next_public_clerk_sign_in_url",
-    "NEXT_PUBLIC_CLERK_SIGN_UP_URL": "@next_public_clerk_sign_up_url",
-    "CLERK_SECRET_KEY": "@clerk_secret_key",
-    "CLERK_WEBHOOK_SECRET": "@clerk_webhook_secret",
-    "NEXT_PUBLIC_SUPABASE_URL": "@next_public_supabase_url",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@next_public_supabase_anon_key",
-    "SUPABASE_SERVICE_ROLE_KEY": "@supabase_service_role_key",
-    "CRON_SECRET": "@cron_secret"
-  },
   "crons": [
     {
       "path": "/api/cron/flag-stale",
