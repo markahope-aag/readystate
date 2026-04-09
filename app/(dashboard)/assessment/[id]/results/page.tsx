@@ -17,6 +17,7 @@ import {
 import { recommendations } from "@/lib/assessment/recommendations";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { DownloadReportButton } from "@/components/download-report-button";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -123,9 +124,7 @@ export default async function ResultsPage({
 
             <div className="flex flex-col items-start gap-3 sm:items-end">
               <RiskBadge level={riskLevel} />
-              <Button variant="outline" size="sm" disabled>
-                Download Report
-              </Button>
+              <DownloadReportButton assessmentId={id} />
             </div>
           </div>
         </div>
