@@ -1,4 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
 
 const isProtectedRoute = createRouteMatcher([
   "/dashboard(.*)",
@@ -6,9 +7,20 @@ const isProtectedRoute = createRouteMatcher([
   "/history(.*)",
 ]);
 
+/**
+ * Clerk v7 note: `auth.protect()` rewrites to a 404 for unauthenticated
+ * requests by default instead of redirecting to sign-in. Since ReadyState
+ * uses modal sign-in from the landing page, we explicitly redirect
+ * unauthenticated users to `/` where the modal lives.
+ */
 export default clerkMiddleware(async (auth, req) => {
-  if (isProtectedRoute(req)) {
-    await auth.protect();
+  if (!isProtectedRoute(req)) return;
+
+  const { userId } = await auth();
+  if (!userId) {
+    const signInUrl = new URL("/", req.url);
+    signInUrl.searchParams.set("redirect_url", req.nextUrl.pathname);
+    return NextResponse.redirect(signInUrl);
   }
 });
 
