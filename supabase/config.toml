@@ -1,0 +1,15 @@
+# Supabase CLI config for ReadyState
+#
+# The canonical way migrations are applied in this repo is via the Management
+# API (see memory: readystate.md → "Applying Supabase migrations"), not
+# `supabase db push`. This file exists so the CLI knows which remote project
+# to target for commands like `supabase db diff`, `supabase gen types`, and
+# `supabase functions deploy`.
+
+project_id = "rhgaezvatpalfyhpsmiy"
+
+[db]
+major_version = 17
+
+[db.migrations]
+schema_paths = ["./migrations"]
