@@ -36,20 +36,18 @@ interface SearchParams {
 export default async function HistoryPage({
   searchParams,
 }: {
-  searchParams: SearchParams;
+  searchParams: Promise<SearchParams>;
 }) {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) redirect("/");
 
+  const params = await searchParams;
   const rows = await getUserAssessments(userId);
-  const filtered = applyFilters(rows, searchParams);
-  const sorted = applySort(filtered, searchParams);
+  const filtered = applyFilters(rows, params);
+  const sorted = applySort(filtered, params);
 
   const hasFilters = Boolean(
-    searchParams.risk ||
-      searchParams.status ||
-      searchParams.from ||
-      searchParams.to,
+    params.risk || params.status || params.from || params.to,
   );
 
   return (
@@ -65,7 +63,7 @@ export default async function HistoryPage({
           </p>
         </div>
 
-        <FilterBar searchParams={searchParams} />
+        <FilterBar searchParams={params} />
 
         {rows.length === 0 ? (
           <FirstTimeEmptyState />
@@ -79,39 +77,39 @@ export default async function HistoryPage({
                   <SortableHeader
                     column="org"
                     label="Organization"
-                    searchParams={searchParams}
+                    searchParams={params}
                   />
                   <SortableHeader
                     column="site"
                     label="Site"
-                    searchParams={searchParams}
+                    searchParams={params}
                   />
                   <SortableHeader
                     column="updated_at"
                     label="Date"
-                    searchParams={searchParams}
+                    searchParams={params}
                   />
                   <SortableHeader
                     column="status"
                     label="Status"
-                    searchParams={searchParams}
+                    searchParams={params}
                   />
                   <SortableHeader
                     column="sb553"
                     label="SB 553"
-                    searchParams={searchParams}
+                    searchParams={params}
                     align="right"
                   />
                   <SortableHeader
                     column="overall"
                     label="Overall"
-                    searchParams={searchParams}
+                    searchParams={params}
                     align="right"
                   />
                   <SortableHeader
                     column="risk"
                     label="Risk"
-                    searchParams={searchParams}
+                    searchParams={params}
                   />
                 </TableRow>
               </TableHeader>

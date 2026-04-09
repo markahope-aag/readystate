@@ -1,10 +1,5 @@
 import Link from "next/link";
-import {
-  SignedIn,
-  SignedOut,
-  SignInButton,
-  UserButton,
-} from "@clerk/nextjs";
+import { Show, SignInButton, UserButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -40,14 +35,14 @@ export function AppHeader() {
           </nav>
         </div>
         <div className="flex items-center gap-3">
-          <SignedIn>
-            <UserButton afterSignOutUrl="/" />
-          </SignedIn>
-          <SignedOut>
+          <Show when="signed-in">
+            <UserButton />
+          </Show>
+          <Show when="signed-out">
             <SignInButton mode="modal">
               <Button size="sm">Sign in</Button>
             </SignInButton>
-          </SignedOut>
+          </Show>
         </div>
       </div>
     </header>

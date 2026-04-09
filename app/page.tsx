@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
+import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const { userId } = auth();
+  const { userId } = await auth();
   const user = userId ? await currentUser() : null;
   const displayName = user?.firstName ?? user?.emailAddresses[0]?.emailAddress ?? null;
 
@@ -23,7 +23,7 @@ export default async function Home() {
             </div>
           </div>
           <nav className="flex items-center gap-3">
-            <SignedOut>
+            <Show when="signed-out">
               <SignInButton mode="modal">
                 <button className="text-sm font-medium text-muted-foreground hover:text-foreground">
                   Sign in
@@ -32,10 +32,10 @@ export default async function Home() {
               <SignUpButton mode="modal">
                 <Button size="sm">Get started</Button>
               </SignUpButton>
-            </SignedOut>
-            <SignedIn>
-              <UserButton afterSignOutUrl="/" />
-            </SignedIn>
+            </Show>
+            <Show when="signed-in">
+              <UserButton />
+            </Show>
           </nav>
         </div>
       </header>
@@ -57,14 +57,14 @@ export default async function Home() {
             and a clear remediation path.
           </p>
           <div className="flex flex-wrap gap-3 pt-2">
-            <SignedIn>
+            <Show when="signed-in">
               <Link href="/assessment/new">
                 <Button size="lg">
                   {displayName ? `Start assessment, ${displayName}` : "Start an assessment"}
                 </Button>
               </Link>
-            </SignedIn>
-            <SignedOut>
+            </Show>
+            <Show when="signed-out">
               <SignUpButton mode="modal">
                 <Button size="lg">Create an account to begin</Button>
               </SignUpButton>
@@ -73,7 +73,7 @@ export default async function Home() {
                   Sign in
                 </Button>
               </SignInButton>
-            </SignedOut>
+            </Show>
           </div>
         </div>
 

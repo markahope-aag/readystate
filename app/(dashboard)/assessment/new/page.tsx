@@ -6,7 +6,7 @@ import { Wizard, type WizardInitialAssessment, type WizardInitialResponse } from
 export const dynamic = "force-dynamic";
 
 interface PageProps {
-  searchParams: { id?: string };
+  searchParams: Promise<{ id?: string }>;
 }
 
 /**
@@ -15,15 +15,15 @@ interface PageProps {
  * responses. Otherwise it starts fresh at the Organization Info step.
  */
 export default async function NewAssessmentPage({ searchParams }: PageProps) {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) redirect("/");
 
-  const assessmentId = searchParams.id;
+  const { id: assessmentId } = await searchParams;
   let initialAssessment: WizardInitialAssessment | null = null;
   let initialResponses: WizardInitialResponse[] = [];
 
   if (assessmentId) {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     const { data: assessment } = await supabase
       .from("assessments")

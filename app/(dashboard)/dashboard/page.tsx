@@ -28,7 +28,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) redirect("/");
 
   const [user, assessments] = await Promise.all([

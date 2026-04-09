@@ -48,19 +48,20 @@ const CONSULTATION_URL = "https://meetings.hubspot.com/mark-hope2";
 export default async function ResultsPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) redirect("/");
 
-  const supabase = createClient();
+  const { id } = await params;
+  const supabase = await createClient();
 
   const { data: assessment } = await supabase
     .from("assessments")
     .select(
       "id, site_name, site_address, status, created_at, updated_at, organizations(id, name, industry, employee_count, california_locations)",
     )
-    .eq("id", params.id)
+    .eq("id", id)
     .maybeSingle();
 
   if (!assessment) notFound();
@@ -70,17 +71,17 @@ export default async function ResultsPage({
     .select(
       "sb553_score, asis_score, hazard_score, overall_score, risk_level",
     )
-    .eq("assessment_id", params.id)
+    .eq("assessment_id", id)
     .maybeSingle();
 
   if (!scores) {
-    return <NoScoresYet assessmentId={params.id} />;
+    return <NoScoresYet assessmentId={id} />;
   }
 
   const { data: responses } = await supabase
     .from("assessment_responses")
     .select("question_id, response, notes")
-    .eq("assessment_id", params.id);
+    .eq("assessment_id", id);
 
   const gaps = buildGapList((responses as ResponseRow[] | null) ?? []);
   const topCritical = gaps

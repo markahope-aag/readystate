@@ -274,7 +274,7 @@ export function computeScores(
 export async function calculateScores(
   assessmentId: string,
 ): Promise<ScoreResult> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // 1. Fetch all responses for this assessment
   const { data: responses, error: fetchError } = await supabase

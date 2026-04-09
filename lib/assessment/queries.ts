@@ -38,7 +38,7 @@ function single<T>(v: T | T[] | null | undefined): T | null {
 export async function getUserAssessments(
   userId: string,
 ): Promise<UserAssessmentRow[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("assessments")

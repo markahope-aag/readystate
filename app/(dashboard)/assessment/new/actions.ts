@@ -27,10 +27,10 @@ export interface OrgInfoInput {
 export async function createOrgAndAssessment(
   input: OrgInfoInput,
 ): Promise<ActionResult<{ assessmentId: string; orgId: string }>> {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) return { ok: false, error: "Not authenticated" };
 
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: org, error: orgError } = await supabase
     .from("organizations")
@@ -82,7 +82,7 @@ export async function saveResponse(input: {
   response: ResponseValue;
   notes?: string | null;
 }): Promise<ActionResult<null>> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { error } = await supabase.from("assessment_responses").upsert(
     {
       assessment_id: input.assessmentId,

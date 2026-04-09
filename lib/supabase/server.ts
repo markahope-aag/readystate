@@ -10,8 +10,8 @@ import { cookies } from "next/headers";
  * Clerk JWT directly and RLS sees the Clerk user ID via
  * `auth.jwt() ->> 'sub'`.
  */
-export function createClient() {
-  const cookieStore = cookies();
+export async function createClient() {
+  const cookieStore = await cookies();
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -37,7 +37,7 @@ export function createClient() {
         },
       },
       accessToken: async () => {
-        const { getToken } = auth();
+        const { getToken } = await auth();
         return (await getToken()) ?? null;
       },
     },
