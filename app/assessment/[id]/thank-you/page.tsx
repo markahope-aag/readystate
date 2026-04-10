@@ -54,7 +54,8 @@ export default async function ThankYouPage({ params }: PageProps) {
         </div>
 
         <p className="mt-10 text-center text-xs text-muted-foreground">
-          ReadyState is a Kestralis product · Powered by Sentinel Ridge Security
+          ReadyState is a product of Kestralis Group, LLC. · Powered by
+          Asymmetric Marketing
         </p>
       </div>
     </main>

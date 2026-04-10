@@ -21,6 +21,7 @@ import {
 import { OrgInfoStep } from "./org-info-step";
 import { CategoryStep } from "./category-step";
 import { ReviewStep } from "./review-step";
+import { SaveForLaterButton } from "./save-for-later-button";
 
 export interface WizardInitialAssessment {
   id: string;
@@ -290,7 +291,7 @@ export function Wizard({
       )}
 
       {currentScreen.kind !== "org-info" && (
-        <div className="flex items-center justify-between border-t pt-6">
+        <div className="flex items-center justify-between gap-3 border-t pt-6">
           <Button
             variant="outline"
             onClick={handleBack}
@@ -298,18 +299,25 @@ export function Wizard({
           >
             ← Back
           </Button>
-          {currentScreen.kind !== "review" && (
-            <div className="flex items-center gap-3">
-              {!canAdvance && (
-                <span className="text-xs text-muted-foreground">
-                  Answer all critical questions to continue
-                </span>
-              )}
-              <Button onClick={handleNext} disabled={!canAdvance}>
-                Next →
-              </Button>
-            </div>
-          )}
+
+          <div className="flex items-center gap-3">
+            {assessmentId && (
+              <SaveForLaterButton assessmentId={assessmentId} />
+            )}
+
+            {currentScreen.kind !== "review" && (
+              <>
+                {!canAdvance && (
+                  <span className="hidden text-xs text-muted-foreground md:inline">
+                    Answer all critical questions to continue
+                  </span>
+                )}
+                <Button onClick={handleNext} disabled={!canAdvance}>
+                  Next →
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>
