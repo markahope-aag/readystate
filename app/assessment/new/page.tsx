@@ -1,4 +1,5 @@
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { BrandLogo } from "@/components/brand-logo";
 import {
   Wizard,
   type WizardInitialAssessment,
@@ -48,16 +49,9 @@ export default async function NewAssessmentPage({ searchParams }: PageProps) {
 
   return (
     <div className="min-h-screen bg-paper">
-      {/* Minimal editorial header */}
       <header className="border-b border-ink">
-        <div className="mx-auto flex max-w-[1100px] items-baseline justify-between px-6 py-5 md:px-10">
-          <a href="/" className="group flex items-baseline gap-3">
-            <span className="font-display text-[20px] font-medium leading-none tracking-[-0.01em] text-ink">
-              Kestralis
-            </span>
-            <span className="hidden h-3 w-px bg-warm-muted sm:block" />
-            <span className="eyebrow hidden sm:inline">ReadyState</span>
-          </a>
+        <div className="mx-auto flex max-w-[1100px] items-center justify-between px-6 py-5 md:px-10">
+          <BrandLogo variant="light" height={36} />
           <span className="eyebrow">The assessment</span>
         </div>
       </header>

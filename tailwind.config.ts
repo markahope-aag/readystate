@@ -20,10 +20,19 @@ const config: Config = {
         "paper-deep": "#eeece2",
         ink: "#0c0c0a",
         "ink-soft": "#1a1915",
+        // Kept the "forest" name for class-level compatibility, but these
+        // are the ReadyState brand navy values. Every text-forest /
+        // border-forest / bg-forest class in the app picks up navy now.
         forest: {
-          DEFAULT: "#1f3d2b",
-          deep: "#0f2317",
-          soft: "#3a6148",
+          DEFAULT: "#0D1B2E",
+          deep: "#081221",
+          soft: "#2A3A55",
+        },
+        // Brand amber — used for accents and the logo lockup itself.
+        amber: {
+          DEFAULT: "#F5A623",
+          soft: "#FFE0A8",
+          deep: "#C88418",
         },
         sand: {
           DEFAULT: "#c9bd9c",

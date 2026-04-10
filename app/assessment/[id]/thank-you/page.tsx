@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { BrandLogo } from "@/components/brand-logo";
 import { ContactForm } from "./_components/contact-form";
 
 export const dynamic = "force-dynamic";
@@ -29,16 +29,9 @@ export default async function ThankYouPage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-paper">
-      {/* Editorial header */}
       <header className="border-b border-ink">
-        <div className="mx-auto flex max-w-[1400px] items-baseline justify-between px-6 py-5 md:px-12">
-          <Link href="/" className="group flex items-baseline gap-3">
-            <span className="font-display text-[20px] font-medium leading-none tracking-[-0.01em] text-ink">
-              Kestralis
-            </span>
-            <span className="hidden h-3 w-px bg-warm-muted sm:block" />
-            <span className="eyebrow hidden sm:inline">ReadyState</span>
-          </Link>
+        <div className="mx-auto flex max-w-[1400px] items-center justify-between px-6 py-5 md:px-12">
+          <BrandLogo variant="light" height={36} />
           <span className="eyebrow">The colophon</span>
         </div>
       </header>
@@ -101,23 +94,14 @@ export default async function ThankYouPage({ params }: PageProps) {
           </div>
         </section>
 
-        {/* ─── Footer ─────────────────────────────────────────────── */}
         <footer className="border-t border-sand bg-paper">
           <div className="mx-auto max-w-[1400px] px-6 py-10 md:px-12">
-            <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-baseline">
-              <div>
-                <p className="font-display text-[18px] font-medium italic text-ink">
-                  ReadyState
-                </p>
-                <p className="mt-1 text-xs text-warm-muted">
-                  A product of Kestralis Group, LLC ·{" "}
-                  <span className="italic">California, 2026</span>
-                </p>
-              </div>
+            <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
+              <BrandLogo variant="light" height={32} asLink={false} />
               <div className="flex flex-col items-start gap-1 text-xs text-warm-muted md:items-end">
                 <p>
-                  Structured self-assessment against Cal. Labor Code
-                  §6401.9 and ASIS WVPI AA-2020.
+                  A product of Kestralis Group, LLC ·{" "}
+                  <span className="italic">California, 2026</span>
                 </p>
                 <p>
                   Not legal advice. Powered by{" "}

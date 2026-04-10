@@ -120,12 +120,18 @@ const palette = {
   paperDeep: "#eeece2",
   ink: "#0c0c0a",
   inkSoft: "#1a1915",
-  forest: "#1f3d2b",
-  forestDeep: "#0f2317",
-  forestSoft: "#3a6148",
+  // "forest" kept as the key name for parity with the web tokens, but
+  // these are the ReadyState brand navy values.
+  forest: "#0D1B2E",
+  forestDeep: "#081221",
+  forestSoft: "#2A3A55",
   sand: "#c9bd9c",
   sandSoft: "#e4dcc2",
   sandDeep: "#a89a6e",
+  // Brand amber accent — used sparingly.
+  amber: "#F5A623",
+  amberSoft: "#FFE0A8",
+  amberDeep: "#C88418",
   warmMuted: "#6b6758",
   warmMutedSoft: "#9a9688",
   riskRed: "#a02020",

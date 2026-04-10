@@ -17,8 +17,8 @@
     --popover: 51 30% 97%;
     --popover-foreground: 48 11% 5%;
 
-    /* primary = forest #1f3d2b */
-    --primary: 143 34% 18%;
+    /* primary = brand navy #0D1B2E */
+    --primary: 213 57% 11%;
     --primary-foreground: 51 28% 95%;
 
     /* secondary = sand-soft */
@@ -39,7 +39,7 @@
     /* sand for borders / inputs */
     --border: 47 20% 82%;
     --input: 47 20% 82%;
-    --ring: 143 34% 18%;
+    --ring: 213 57% 11%;
 
     --radius: 0.25rem; /* sharper, editorial */
   }
@@ -71,7 +71,7 @@
 
   /* Subtle selection color in the accent */
   ::selection {
-    background: #1f3d2b;
+    background: #0d1b2e;
     color: #f5f4ed;
   }
 }
@@ -104,7 +104,7 @@
     float: left;
     margin-right: 0.1em;
     margin-top: 0.05em;
-    color: #1f3d2b;
+    color: #0d1b2e;
     font-style: italic;
     font-weight: 500;
   }

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="32" height="32" viewBox="0 0 32 32"
+     xmlns="http://www.w3.org/2000/svg">
+  <rect width="32" height="32" rx="7" fill="#0D1B2E"/>
+  <path d="M 8.2,4.559999999999999 L 23.800000000000004,4.559999999999999 Q 25.880000000000003,4.559999999999999 25.880000000000003,6.639999999999999 L 25.880000000000003,17.144000000000002 L 16.0,27.44 L 6.119999999999999,17.144000000000002 L 6.119999999999999,6.639999999999999 Q 6.119999999999999,4.559999999999999 8.2,4.559999999999999"
+        fill="none" stroke="#F5A623" stroke-width="1.5"
+        stroke-linejoin="round" opacity="0.5"/>
+  <path d="M 10.8,16.52 L 14.96,20.68 L 21.72,11.84"
+        fill="none" stroke="#F5A623" stroke-width="1.8"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
