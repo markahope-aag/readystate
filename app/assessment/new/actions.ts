@@ -29,46 +29,65 @@ export interface OrgInfoInput {
 export async function createOrgAndAssessment(
   input: OrgInfoInput,
 ): Promise<ActionResult<{ assessmentId: string; orgId: string }>> {
-  const supabase = createServiceRoleClient();
+  try {
+    const supabase = createServiceRoleClient();
 
-  const { data: org, error: orgError } = await supabase
-    .from("organizations")
-    .insert({
-      name: input.orgName,
-      industry: input.industry,
-      employee_count: input.employeeCount,
-      california_locations: input.californiaLocations,
-    })
-    .select("id")
-    .single();
+    const { data: org, error: orgError } = await supabase
+      .from("organizations")
+      .insert({
+        name: input.orgName,
+        industry: input.industry,
+        employee_count: input.employeeCount,
+        california_locations: input.californiaLocations,
+      })
+      .select("id")
+      .single();
 
-  if (orgError || !org) {
+    if (orgError || !org) {
+      console.error("[createOrgAndAssessment] org insert failed", orgError);
+      return {
+        ok: false,
+        error: orgError?.message ?? "Failed to create organization",
+      };
+    }
+
+    const { data: assessment, error: assessError } = await supabase
+      .from("assessments")
+      .insert({
+        org_id: org.id,
+        clerk_user_id: null,
+        site_name: input.siteName,
+        site_address: input.siteAddress,
+        status: "in_progress",
+      })
+      .select("id")
+      .single();
+
+    if (assessError || !assessment) {
+      console.error(
+        "[createOrgAndAssessment] assessment insert failed",
+        assessError,
+      );
+      return {
+        ok: false,
+        error: assessError?.message ?? "Failed to create assessment",
+      };
+    }
+
+    return {
+      ok: true,
+      data: { assessmentId: assessment.id, orgId: org.id },
+    };
+  } catch (e) {
+    console.error("[createOrgAndAssessment] unexpected error", e);
     return {
       ok: false,
-      error: orgError?.message ?? "Failed to create organization",
+      error:
+        e instanceof Error
+          ? e.message
+          : "Unexpected error creating assessment",
     };
   }
-
-  const { data: assessment, error: assessError } = await supabase
-    .from("assessments")
-    .insert({
-      org_id: org.id,
-      clerk_user_id: null,
-      site_name: input.siteName,
-      site_address: input.siteAddress,
-      status: "in_progress",
-    })
-    .select("id")
-    .single();
-
-  if (assessError || !assessment) {
-    return {
-      ok: false,
-      error: assessError?.message ?? "Failed to create assessment",
-    };
-  }
-
-  return { ok: true, data: { assessmentId: assessment.id, orgId: org.id } };
 }
 
 /**
