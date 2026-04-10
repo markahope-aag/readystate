@@ -16,7 +16,7 @@ import Link from "next/link";
  */
 export function BrandLogo({
   variant = "onLight",
-  height = 40,
+  height = 44,
   asLink = true,
   className,
   ariaLabel = "ReadyState — a product of Kestralis",
@@ -54,8 +54,8 @@ export function BrandLogo({
           height="80"
           rx="14"
           fill="rgba(255,255,255,0.08)"
-          stroke="rgba(255,255,255,0.18)"
-          strokeWidth="1"
+          stroke="rgba(255,255,255,0.22)"
+          strokeWidth="1.5"
         />
       ) : (
         <rect
@@ -68,14 +68,18 @@ export function BrandLogo({
         />
       )}
 
-      {/* ── Shield outline (amber, subtle) ────────────────── */}
+      {/* ── Shield outline (amber) ────────────────────────── */}
+      {/* Stroke widths are intentionally heavy so the amber reads at
+          small header sizes. The original asset was designed to be
+          shown at 120px tall; we render at 44px so strokes need to be
+          ~2.7× wider to remain visible. */}
       <path
         d="M 39 38 L 81 38 Q 86.6 38 86.6 43.6 L 86.6 71.88 L 60 99.6 L 33.4 71.88 L 33.4 43.6 Q 33.4 38 39 38"
         fill="none"
         stroke="#F5A623"
-        strokeWidth="2"
+        strokeWidth="5"
         strokeLinejoin="round"
-        opacity={isDark ? 0.5 : 0.45}
+        opacity={0.85}
       />
 
       {/* ── Checkmark (amber, bold) ───────────────────────── */}
@@ -83,7 +87,7 @@ export function BrandLogo({
         d="M 46 70.2 L 57.2 81.4 L 75.4 57.6"
         fill="none"
         stroke="#F5A623"
-        strokeWidth="2.8"
+        strokeWidth="7"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
