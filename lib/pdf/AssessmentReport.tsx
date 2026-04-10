@@ -1,36 +1,77 @@
 /**
  * Kestralis — ReadyState Assessment Report PDF
  *
- * Server-rendered (@react-pdf/renderer) multi-page document. Consumed by
- * /app/api/assessment/[id]/report/route.ts via renderToBuffer. Not a
- * traditional React component — uses @react-pdf's own primitive set
- * (Document/Page/View/Text), not HTML elements.
+ * Server-rendered editorial report via @react-pdf/renderer. Matches the
+ * live web surfaces: warm cream paper, deep forest accent, Fraunces
+ * display serif paired with Geist Sans body, rule-line layouts,
+ * oversized typographic scores.
  *
- * Layout:
- *   1. Cover page        — brand, org, site, date, risk badge
- *   2. Executive summary — 3 score cards + overall block + top 3 findings
- *   3. Gap analysis      — table of all no/partial responses
- *   4. Recommendations   — one card per weight-3 "no" finding with remediation
+ * Four pages:
+ *   1. Cover        — masthead, org name as masthead title, risk label
+ *   2. Scorecard    — editorial score entries + massive overall numeral
+ *   3. Gap analysis — rule-lined editorial table
+ *   4. Remediation  — numbered cards with forest left rule
  *
- * Footer (fixed on every page): "Prepared by Kestralis · Powered by
- * Sentinel Ridge Security" on the left, page number on the right.
+ * Fixed footer on every page: Kestralis colophon + folio pagination.
+ *
+ * Fonts are registered at module load from jsDelivr CDN mirrors of the
+ * official Google Fonts / Vercel font repos. Network is required at
+ * first render; subsequent renders use react-pdf's in-memory cache.
  */
 
 /* eslint-disable react/no-unknown-property */
 import {
   Document,
+  Font,
   Page,
   Text,
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
 import type { Question } from "@/lib/assessment/questions";
-import { sectionMeta } from "@/lib/assessment/questions";
 import {
   getRiskLabel,
   type RiskLevel,
 } from "@/lib/assessment/scoring";
 import { recommendations } from "@/lib/assessment/recommendations";
+
+// ─── Font registration ──────────────────────────────────────────────────────
+
+// Fraunces — display serif. Variable font but react-pdf needs static files,
+// so we pull specific weights. Italic is the star here.
+Font.register({
+  family: "Fraunces",
+  fonts: [
+    {
+      src: "https://cdn.jsdelivr.net/gh/undercasetype/Fraunces@main/fonts/static/OTF/Fraunces_9pt-Light.otf",
+      fontWeight: 300,
+      fontStyle: "normal",
+    },
+    {
+      src: "https://cdn.jsdelivr.net/gh/undercasetype/Fraunces@main/fonts/static/OTF/Fraunces_9pt-Regular.otf",
+      fontWeight: 400,
+      fontStyle: "normal",
+    },
+    {
+      src: "https://cdn.jsdelivr.net/gh/undercasetype/Fraunces@main/fonts/static/OTF/Fraunces_9pt-Medium.otf",
+      fontWeight: 500,
+      fontStyle: "normal",
+    },
+    {
+      src: "https://cdn.jsdelivr.net/gh/undercasetype/Fraunces@main/fonts/static/OTF/Fraunces_9pt-Italic.otf",
+      fontWeight: 400,
+      fontStyle: "italic",
+    },
+    {
+      src: "https://cdn.jsdelivr.net/gh/undercasetype/Fraunces@main/fonts/static/OTF/Fraunces_9pt-LightItalic.otf",
+      fontWeight: 300,
+      fontStyle: "italic",
+    },
+  ],
+});
+
+// Suppress Fraunces word-break warnings for long italic headlines
+Font.registerHyphenationCallback((word) => [word]);
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -72,47 +113,35 @@ export interface AssessmentReportProps {
   generatedAt: Date;
 }
 
-// ─── Colors ──────────────────────────────────────────────────────────────────
+// ─── Palette — hex literals mirroring the web tokens ─────────────────────
 
-// Hex equivalents of our Tailwind risk palette. react-pdf doesn't accept
-// Tailwind classes — needs literal hex/rgb values.
-interface PdfColors {
-  bg: string;
-  text: string;
-  border: string;
-  accent: string;
-}
+const palette = {
+  paper: "#f5f4ed",
+  paperDeep: "#eeece2",
+  ink: "#0c0c0a",
+  inkSoft: "#1a1915",
+  forest: "#1f3d2b",
+  forestDeep: "#0f2317",
+  forestSoft: "#3a6148",
+  sand: "#c9bd9c",
+  sandSoft: "#e4dcc2",
+  sandDeep: "#a89a6e",
+  warmMuted: "#6b6758",
+  warmMutedSoft: "#9a9688",
+  riskRed: "#a02020",
+  riskRedSoft: "#f4e7e7",
+};
 
-function riskPdfColors(level: RiskLevel): PdfColors {
+function toneForRisk(level: RiskLevel): string {
   switch (level) {
     case "low":
-      return {
-        bg: "#ECFDF5",
-        text: "#064E3B",
-        border: "#A7F3D0",
-        accent: "#059669",
-      };
+      return palette.forest;
     case "moderate":
-      return {
-        bg: "#F0F9FF",
-        text: "#0C4A6E",
-        border: "#BAE6FD",
-        accent: "#0284C7",
-      };
+      return palette.forestSoft;
     case "high":
-      return {
-        bg: "#FFFBEB",
-        text: "#78350F",
-        border: "#FDE68A",
-        accent: "#D97706",
-      };
+      return palette.sandDeep;
     case "critical":
-      return {
-        bg: "#FEF2F2",
-        text: "#7F1D1D",
-        border: "#FECACA",
-        accent: "#DC2626",
-      };
+      return palette.riskRed;
   }
 }
 
@@ -123,620 +152,737 @@ function scoreToRiskLevel(score: number): RiskLevel {
   return "critical";
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
-
-const colors = {
-  text: "#0f172a",
-  textMuted: "#64748b",
-  textSoft: "#94a3b8",
-  border: "#e2e8f0",
-  surface: "#f8fafc",
-  brand: "#0f172a",
-  brandAccent: "#1e293b",
+const SECTION_ROMANS: Record<"sb553" | "asis" | "hazard", string> = {
+  sb553: "I",
+  asis: "II",
+  hazard: "III",
 };
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   page: {
     paddingTop: 56,
-    paddingBottom: 64,
-    paddingHorizontal: 48,
+    paddingBottom: 72,
+    paddingHorizontal: 56,
     fontSize: 10,
-    fontFamily: "Helvetica",
-    color: colors.text,
+    fontFamily: "Fraunces",
+    fontWeight: 400,
+    color: palette.ink,
+    backgroundColor: palette.paper,
   },
 
-  // ─── Footer (fixed on every page) ─────────────────────────────────────
+  // ─── Running chrome ─────────────────────────────────────────────────
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    paddingBottom: 12,
+    marginBottom: 32,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.ink,
+  },
+  headerMark: {
+    fontFamily: "Fraunces",
+    fontWeight: 500,
+    fontSize: 14,
+    color: palette.ink,
+    letterSpacing: 0.2,
+  },
+  headerLabel: {
+    fontFamily: "Fraunces",
+    fontWeight: 400,
+    fontSize: 8,
+    color: palette.warmMuted,
+    textTransform: "uppercase",
+    letterSpacing: 1.6,
+  },
   footer: {
     position: "absolute",
-    bottom: 28,
-    left: 48,
-    right: 48,
+    bottom: 32,
+    left: 56,
+    right: 56,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     borderTopWidth: 0.5,
-    borderTopColor: colors.border,
+    borderTopColor: palette.sand,
     paddingTop: 10,
   },
   footerText: {
-    fontSize: 8,
-    color: colors.textMuted,
+    fontFamily: "Fraunces",
+    fontSize: 7,
+    color: palette.warmMuted,
+    fontStyle: "italic",
   },
 
-  // ─── Cover page ───────────────────────────────────────────────────────
+  // ─── Eyebrow (small caps letter-spaced label) ────────────────────────
+  eyebrow: {
+    fontFamily: "Fraunces",
+    fontSize: 7.5,
+    fontWeight: 500,
+    color: palette.warmMuted,
+    textTransform: "uppercase",
+    letterSpacing: 1.6,
+  },
+
+  // ─── Cover page ──────────────────────────────────────────────────────
   coverWrap: {
     flex: 1,
+    paddingTop: 40,
     justifyContent: "space-between",
   },
-  coverTop: {
-    marginTop: 24,
-  },
-  brandMark: {
-    fontSize: 24,
-    fontFamily: "Helvetica-Bold",
-    color: colors.brand,
-    letterSpacing: 4,
-  },
-  brandTag: {
-    marginTop: 6,
-    fontSize: 9,
-    color: colors.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: 1.5,
-  },
-  coverTitleBlock: {
-    marginTop: 120,
-  },
-  coverLabel: {
-    fontSize: 8,
-    color: colors.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
-  coverValue: {
-    fontSize: 20,
-    fontFamily: "Helvetica-Bold",
-    marginBottom: 20,
-  },
-  coverSubValue: {
-    fontSize: 11,
-    color: colors.textMuted,
-    marginTop: -16,
-    marginBottom: 20,
-  },
-  coverRiskBadge: {
-    marginTop: 28,
-    alignSelf: "flex-start",
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderWidth: 1.5,
-    borderRadius: 999,
-  },
-  coverRiskBadgeText: {
-    fontSize: 13,
-    fontFamily: "Helvetica-Bold",
-    letterSpacing: 1.5,
-  },
-  coverDocType: {
-    marginBottom: 4,
-    fontSize: 9,
-    color: colors.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: 1.5,
-  },
-  coverDocTitle: {
-    fontSize: 34,
-    fontFamily: "Helvetica-Bold",
-    lineHeight: 1.15,
-    marginBottom: 12,
-  },
-
-  // ─── Section headings ─────────────────────────────────────────────────
-  h1: {
-    fontSize: 20,
-    fontFamily: "Helvetica-Bold",
-    marginBottom: 6,
-  },
-  h1Sub: {
-    fontSize: 10,
-    color: colors.textMuted,
-    marginBottom: 20,
-  },
-  h2: {
-    fontSize: 13,
-    fontFamily: "Helvetica-Bold",
-    marginBottom: 8,
-    marginTop: 16,
-  },
-
-  // ─── Score cards (exec summary) ───────────────────────────────────────
-  scoreRow: {
+  coverMeta: {
     flexDirection: "row",
-    gap: 10,
-    marginBottom: 16,
+    justifyContent: "space-between",
+    marginBottom: 56,
   },
-  scoreCard: {
-    flex: 1,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 6,
+  coverTitle: {
+    fontFamily: "Fraunces",
+    fontWeight: 300,
+    fontSize: 72,
+    lineHeight: 0.98,
+    letterSpacing: -1.8,
+    color: palette.ink,
   },
-  scoreCardLabel: {
-    fontSize: 8,
-    color: colors.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-    marginBottom: 6,
+  coverItalic: {
+    fontFamily: "Fraunces",
+    fontWeight: 300,
+    fontStyle: "italic",
+    color: palette.forest,
   },
-  scoreCardValue: {
-    fontSize: 26,
-    fontFamily: "Helvetica-Bold",
+  coverPunctuation: {
+    color: palette.warmMuted,
+  },
+  coverSiteLine: {
+    marginTop: 24,
+    fontFamily: "Fraunces",
+    fontWeight: 300,
+    fontStyle: "italic",
+    fontSize: 16,
+    color: palette.warmMuted,
+    lineHeight: 1.4,
+  },
+  coverRiskBlock: {
+    marginTop: 60,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: palette.ink,
+  },
+  coverRiskLabel: {
+    fontFamily: "Fraunces",
+    fontWeight: 300,
+    fontStyle: "italic",
+    fontSize: 44,
+    lineHeight: 1,
+    letterSpacing: -0.6,
+  },
+  coverRiskDescription: {
+    marginTop: 14,
+    fontFamily: "Fraunces",
+    fontSize: 10,
+    lineHeight: 1.6,
+    color: palette.ink,
+    maxWidth: "75%",
+  },
+  coverColophon: {
+    marginTop: 48,
+    paddingTop: 16,
+    borderTopWidth: 0.5,
+    borderTopColor: palette.sand,
+  },
+  coverColophonRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 6,
+  },
+  coverColophonValue: {
+    fontFamily: "Fraunces",
+    fontSize: 10,
+    color: palette.ink,
+  },
+
+  // ─── Section heads ──────────────────────────────────────────────────
+  sectionIntro: {
+    flexDirection: "row",
+    marginBottom: 32,
+  },
+  sectionIntroLeft: {
+    flex: 4,
+    paddingRight: 24,
+  },
+  sectionIntroRight: {
+    flex: 6,
+  },
+  sectionH1: {
+    fontFamily: "Fraunces",
+    fontWeight: 300,
+    fontSize: 40,
+    lineHeight: 0.96,
+    letterSpacing: -0.9,
+    color: palette.ink,
+    marginTop: 4,
+  },
+  sectionBody: {
+    fontFamily: "Fraunces",
+    fontSize: 11,
+    lineHeight: 1.7,
+    color: palette.ink,
+  },
+
+  // ─── Scorecard entries ──────────────────────────────────────────────
+  scoreEntry: {
+    flexDirection: "row",
+    borderBottomWidth: 0.5,
+    borderBottomColor: palette.ink,
+    paddingVertical: 24,
+  },
+  scoreEntryRoman: {
+    width: "8%",
+    fontFamily: "Fraunces",
+    fontWeight: 300,
+    fontStyle: "italic",
+    fontSize: 24,
+    color: palette.forest,
     lineHeight: 1,
   },
-  scoreCardRisk: {
-    fontSize: 9,
+  scoreEntryMeta: {
+    width: "44%",
+    paddingRight: 16,
+  },
+  scoreEntryLabel: {
+    fontFamily: "Fraunces",
+    fontWeight: 400,
+    fontSize: 22,
+    lineHeight: 1.05,
+    letterSpacing: -0.3,
+    color: palette.ink,
+    marginTop: 2,
+  },
+  scoreEntryWeight: {
     marginTop: 6,
-    fontFamily: "Helvetica-Bold",
-    textTransform: "uppercase",
+    fontFamily: "Fraunces",
+    fontSize: 8,
+    color: palette.warmMuted,
     letterSpacing: 0.5,
   },
-  overallBlock: {
-    marginTop: 4,
-    padding: 18,
-    borderWidth: 1.5,
-    borderRadius: 8,
+  scoreEntryValueWrap: {
+    width: "48%",
+  },
+  scoreEntryValueLine: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 20,
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    borderBottomWidth: 0.5,
+    borderBottomColor: palette.sand,
+    paddingBottom: 4,
   },
-  overallScoreBubble: {
-    width: 86,
-    height: 86,
-    borderRadius: 43,
-    borderWidth: 2,
-    alignItems: "center",
-    justifyContent: "center",
+  scoreEntryValue: {
+    fontFamily: "Fraunces",
+    fontWeight: 300,
+    fontSize: 48,
+    lineHeight: 0.9,
+    letterSpacing: -1.5,
   },
-  overallScoreNumber: {
-    fontSize: 30,
-    fontFamily: "Helvetica-Bold",
-    lineHeight: 1,
+  scoreEntryPct: {
+    color: palette.warmMuted,
   },
-  overallScoreLabel: {
-    fontSize: 7,
-    marginTop: 2,
-    textTransform: "uppercase",
-    letterSpacing: 1,
+  scoreEntryRisk: {
+    marginTop: 8,
+    fontFamily: "Fraunces",
+    fontStyle: "italic",
+    fontSize: 11,
   },
-  overallTextBlock: {
-    flex: 1,
+
+  // ─── Overall score ───────────────────────────────────────────────────
+  overallWrap: {
+    marginTop: 40,
+    paddingTop: 28,
+    borderTopWidth: 1.2,
+    borderTopColor: palette.ink,
+    flexDirection: "row",
   },
-  overallRatingLabel: {
-    fontSize: 8,
-    color: colors.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    marginBottom: 4,
+  overallNumberColumn: {
+    flex: 6,
+    paddingRight: 20,
   },
-  overallRatingTitle: {
-    fontSize: 16,
-    fontFamily: "Helvetica-Bold",
-    marginBottom: 6,
+  overallEyebrow: {
+    marginBottom: 12,
+  },
+  overallNumber: {
+    fontFamily: "Fraunces",
+    fontWeight: 300,
+    fontSize: 160,
+    lineHeight: 0.82,
+    letterSpacing: -5,
+  },
+  overallRight: {
+    flex: 5,
+    paddingLeft: 12,
+    paddingTop: 16,
+  },
+  overallLabel: {
+    fontFamily: "Fraunces",
+    fontWeight: 300,
+    fontStyle: "italic",
+    fontSize: 32,
+    lineHeight: 0.95,
+    letterSpacing: -0.4,
   },
   overallDescription: {
-    fontSize: 9.5,
-    lineHeight: 1.55,
-    color: colors.textMuted,
-  },
-
-  // ─── Finding summary (exec summary) ───────────────────────────────────
-  findingItem: {
-    marginTop: 6,
-    paddingTop: 8,
-    borderTopWidth: 0.5,
-    borderTopColor: colors.border,
-  },
-  findingTopLine: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 3,
-  },
-  findingBadge: {
-    fontSize: 7,
-    fontFamily: "Helvetica-Bold",
-    color: "#991B1B",
-    backgroundColor: "#FEE2E2",
-    paddingVertical: 2,
-    paddingHorizontal: 5,
-    borderRadius: 3,
-  },
-  findingId: {
-    fontSize: 8,
-    color: colors.textSoft,
-    fontFamily: "Courier",
-  },
-  findingText: {
+    marginTop: 14,
+    fontFamily: "Fraunces",
     fontSize: 10,
-    lineHeight: 1.4,
-    marginBottom: 3,
+    lineHeight: 1.65,
+    color: palette.ink,
   },
 
-  // ─── Gap analysis table ───────────────────────────────────────────────
-  table: {
-    borderWidth: 0.5,
-    borderColor: colors.border,
-    borderRadius: 4,
-  },
-  tableHeaderRow: {
+  // ─── Table ───────────────────────────────────────────────────────────
+  tableHeader: {
     flexDirection: "row",
-    backgroundColor: colors.surface,
+    borderTopWidth: 1,
     borderBottomWidth: 0.5,
-    borderBottomColor: colors.border,
+    borderColor: palette.ink,
     paddingVertical: 7,
-    paddingHorizontal: 6,
+  },
+  th: {
+    fontFamily: "Fraunces",
+    fontStyle: "italic",
+    fontSize: 9,
+    color: palette.forest,
   },
   tableRow: {
     flexDirection: "row",
     borderBottomWidth: 0.5,
-    borderBottomColor: colors.border,
-    paddingVertical: 7,
-    paddingHorizontal: 6,
+    borderBottomColor: palette.ink,
+    paddingVertical: 10,
   },
-  tableRowLast: {
-    borderBottomWidth: 0,
-  },
-  th: {
-    fontSize: 7,
-    fontFamily: "Helvetica-Bold",
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-    color: colors.textMuted,
-  },
-  td: {
-    fontSize: 8.5,
-    lineHeight: 1.4,
-  },
-  tdMono: {
-    fontSize: 7,
+  tdRoman: {
+    width: "6%",
     fontFamily: "Courier",
-    color: colors.textMuted,
-  },
-  pill: {
     fontSize: 7,
-    fontFamily: "Helvetica-Bold",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderRadius: 999,
-    borderWidth: 0.5,
-    alignSelf: "flex-start",
+    color: palette.warmMuted,
+    paddingTop: 3,
+  },
+  tdId: {
+    width: "10%",
+    fontFamily: "Courier",
+    fontSize: 7,
+    color: palette.warmMutedSoft,
+    paddingTop: 3,
+  },
+  tdFinding: {
+    width: "56%",
+    paddingRight: 12,
+  },
+  tdFindingText: {
+    fontFamily: "Fraunces",
+    fontWeight: 300,
+    fontSize: 11,
+    lineHeight: 1.35,
+    color: palette.ink,
+  },
+  tdFindingCategory: {
+    marginTop: 3,
+    fontFamily: "Fraunces",
+    fontStyle: "italic",
+    fontSize: 8,
+    color: palette.warmMutedSoft,
+  },
+  tdResponse: {
+    width: "14%",
+    paddingTop: 3,
+    fontFamily: "Fraunces",
+    fontStyle: "italic",
+    fontSize: 10,
+  },
+  tdPriority: {
+    width: "14%",
+    paddingTop: 3,
+    fontFamily: "Fraunces",
+    fontStyle: "italic",
+    fontSize: 10,
+    textAlign: "right",
   },
 
-  // ─── Recommendation cards ─────────────────────────────────────────────
-  recCard: {
-    borderWidth: 0.8,
-    borderColor: "#FCA5A5",
-    borderRadius: 6,
-    padding: 12,
-    marginBottom: 10,
-  },
-  recTopRow: {
+  // ─── Recommendation entries ──────────────────────────────────────────
+  recEntry: {
     flexDirection: "row",
-    alignItems: "center",
+    borderBottomWidth: 0.5,
+    borderBottomColor: palette.ink,
+    paddingVertical: 22,
+  },
+  recNumber: {
+    width: "8%",
+    fontFamily: "Fraunces",
+    fontWeight: 300,
+    fontStyle: "italic",
+    fontSize: 24,
+    color: palette.riskRed,
+    lineHeight: 1,
+  },
+  recTitleColumn: {
+    width: "42%",
+    paddingRight: 16,
+  },
+  recEyebrow: {
+    fontFamily: "Fraunces",
+    fontSize: 7.5,
+    fontWeight: 500,
+    color: palette.riskRed,
+    textTransform: "uppercase",
+    letterSpacing: 1.4,
     marginBottom: 6,
-    gap: 6,
   },
-  recBadge: {
-    fontSize: 7,
-    fontFamily: "Helvetica-Bold",
-    color: "#991B1B",
-    backgroundColor: "#FEE2E2",
-    paddingVertical: 2,
-    paddingHorizontal: 5,
-    borderRadius: 3,
+  recTitle: {
+    fontFamily: "Fraunces",
+    fontWeight: 400,
+    fontSize: 14,
+    lineHeight: 1.25,
+    color: palette.ink,
   },
-  recId: {
-    fontSize: 7,
-    fontFamily: "Courier",
-    color: colors.textSoft,
+  recBodyColumn: {
+    width: "50%",
   },
-  recQuestion: {
+  recBodyLabel: {
+    fontFamily: "Fraunces",
+    fontSize: 7.5,
+    fontWeight: 500,
+    color: palette.warmMuted,
+    textTransform: "uppercase",
+    letterSpacing: 1.6,
+    marginBottom: 6,
+  },
+  recBody: {
+    fontFamily: "Fraunces",
     fontSize: 10,
-    fontFamily: "Helvetica-Bold",
-    marginBottom: 6,
-    lineHeight: 1.3,
+    lineHeight: 1.65,
+    color: palette.ink,
+    borderLeftWidth: 1,
+    borderLeftColor: palette.forest,
+    paddingLeft: 10,
   },
-  recGuidance: {
-    fontSize: 9,
-    lineHeight: 1.55,
-    color: colors.text,
-    borderLeftWidth: 1.5,
-    borderLeftColor: colors.brandAccent,
-    paddingLeft: 8,
+  recEmpty: {
+    fontFamily: "Fraunces",
+    fontSize: 11,
+    fontStyle: "italic",
+    color: palette.forestSoft,
+    marginTop: 24,
   },
 });
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── Running chrome ──────────────────────────────────────────────────────────
 
-const Footer = () => (
+const RunningHeader = () => (
+  <View style={styles.header} fixed>
+    <Text style={styles.headerMark}>
+      Kestralis
+      <Text style={{ color: palette.warmMuted }}> · </Text>
+      ReadyState
+    </Text>
+    <Text style={styles.headerLabel}>Assessment report</Text>
+  </View>
+);
+
+const RunningFooter = () => (
   <View style={styles.footer} fixed>
     <Text style={styles.footerText}>
-      Prepared by Kestralis · Powered by Sentinel Ridge Security
+      A product of Kestralis Group, LLC · Powered by Asymmetric Marketing
     </Text>
     <Text
       style={styles.footerText}
       render={({ pageNumber, totalPages }) =>
-        `Page ${pageNumber} of ${totalPages}`
+        `Folio ${String(pageNumber).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`
       }
     />
   </View>
 );
 
-function ScoreCard({
-  label,
-  score,
-}: {
-  label: string;
-  score: number;
-}) {
-  const riskColors = riskPdfColors(scoreToRiskLevel(score));
-  const { label: riskLabel } = getRiskLabel(scoreToRiskLevel(score));
-  return (
-    <View style={styles.scoreCard}>
-      <Text style={styles.scoreCardLabel}>{label}</Text>
-      <Text style={styles.scoreCardValue}>{score}%</Text>
-      <Text style={[styles.scoreCardRisk, { color: riskColors.accent }]}>
-        {riskLabel}
-      </Text>
-    </View>
-  );
-}
-
 // ─── Pages ────────────────────────────────────────────────────────────────────
 
 function CoverPage({
-  assessment,
   organization,
+  assessment,
   scores,
   generatedAt,
 }: {
-  assessment: ReportAssessment;
   organization: ReportOrganization | null;
+  assessment: ReportAssessment;
   scores: ReportScores;
   generatedAt: Date;
 }) {
-  const risk = riskPdfColors(scores.riskLevel);
-  const { label: riskLabel } = getRiskLabel(scores.riskLevel);
+  const riskMeta = getRiskLabel(scores.riskLevel);
+  const riskTone = toneForRisk(scores.riskLevel);
+  const orgName = organization?.name ?? "Unknown organization";
+
   return (
     <Page size="LETTER" style={styles.page}>
-      <View style={styles.coverWrap}>
-        <View style={styles.coverTop}>
-          <Text style={styles.brandMark}>KESTRALIS</Text>
-          <Text style={styles.brandTag}>ReadyState · SB 553 Assessment</Text>
-        </View>
+      <RunningHeader />
 
+      <View style={styles.coverWrap}>
         <View>
-          <Text style={styles.coverDocType}>Assessment Report</Text>
-          <Text style={styles.coverDocTitle}>
-            Workplace Violence{"\n"}Prevention Assessment
+          <View style={styles.coverMeta}>
+            <Text style={styles.eyebrow}>Assessment report</Text>
+            <Text style={styles.eyebrow}>
+              Issued · {formatDate(generatedAt)}
+            </Text>
+          </View>
+
+          <Text style={styles.coverTitle}>
+            {orgName}
+            <Text style={styles.coverPunctuation}>.</Text>
           </Text>
 
-          <View style={styles.coverTitleBlock}>
-            <Text style={styles.coverLabel}>Organization</Text>
-            <Text style={styles.coverValue}>
-              {organization?.name ?? "—"}
+          {(assessment.site_name || assessment.site_address) && (
+            <Text style={styles.coverSiteLine}>
+              {[assessment.site_name, assessment.site_address]
+                .filter(Boolean)
+                .join(" · ")}
             </Text>
+          )}
 
-            <Text style={styles.coverLabel}>Site</Text>
-            <Text style={styles.coverValue}>
-              {assessment.site_name ?? "—"}
-            </Text>
-            {assessment.site_address && (
-              <Text style={styles.coverSubValue}>
-                {assessment.site_address}
-              </Text>
-            )}
-
-            <Text style={styles.coverLabel}>Assessed</Text>
-            <Text style={styles.coverValue}>{formatDate(generatedAt)}</Text>
-
-            <View
-              style={[
-                styles.coverRiskBadge,
-                {
-                  backgroundColor: risk.bg,
-                  borderColor: risk.border,
-                },
-              ]}
+          {/* Risk band */}
+          <View style={styles.coverRiskBlock}>
+            <Text style={styles.eyebrow}>Overall rating</Text>
+            <Text
+              style={[styles.coverRiskLabel, { color: riskTone, marginTop: 8 }]}
             >
-              <Text
-                style={[
-                  styles.coverRiskBadgeText,
-                  { color: risk.text },
-                ]}
-              >
-                {riskLabel.toUpperCase()}
-              </Text>
-            </View>
+              {riskMeta.label}
+              <Text style={styles.coverPunctuation}>.</Text>
+            </Text>
+            <Text style={styles.coverRiskDescription}>
+              {riskMeta.description}
+            </Text>
           </View>
         </View>
 
-        <View />
+        {/* Colophon */}
+        <View style={styles.coverColophon}>
+          <Text style={styles.eyebrow}>Colophon</Text>
+          <View style={styles.coverColophonRow}>
+            <Text style={styles.coverColophonValue}>
+              California Labor Code §6401.9
+            </Text>
+            <Text style={styles.coverColophonValue}>ASIS WVPI AA-2020</Text>
+          </View>
+          <View style={[styles.coverColophonRow, { marginTop: 2 }]}>
+            <Text
+              style={[
+                styles.coverColophonValue,
+                { fontStyle: "italic", color: palette.warmMuted, fontSize: 9 },
+              ]}
+            >
+              The three standards
+            </Text>
+            <Text
+              style={[
+                styles.coverColophonValue,
+                { fontStyle: "italic", color: palette.warmMuted, fontSize: 9 },
+              ]}
+            >
+              Site Hazard Profile
+            </Text>
+          </View>
+        </View>
       </View>
-      <Footer />
+
+      <RunningFooter />
     </Page>
   );
 }
 
-function ExecutiveSummaryPage({
+function ScorecardPage({
   scores,
-  gaps,
 }: {
   scores: ReportScores;
-  gaps: ReportGap[];
 }) {
-  const risk = riskPdfColors(scores.riskLevel);
-  const { label: riskLabel, description } = getRiskLabel(scores.riskLevel);
-  const topFindings = gaps
-    .filter((g) => g.question.weight === 3 && g.response === "no")
-    .slice(0, 3);
+  const overallTone = toneForRisk(scores.riskLevel);
+  const riskMeta = getRiskLabel(scores.riskLevel);
 
   return (
     <Page size="LETTER" style={styles.page}>
-      <Text style={styles.h1}>Executive Summary</Text>
-      <Text style={styles.h1Sub}>
-        Scores, risk level, and the highest-priority findings.
-      </Text>
+      <RunningHeader />
 
-      <View style={styles.scoreRow}>
-        <ScoreCard label="SB 553 Compliance" score={scores.sb553Score} />
-        <ScoreCard label="ASIS Standard" score={scores.asisScore} />
-        <ScoreCard label="Site Hazard" score={scores.hazardScore} />
+      <View style={styles.sectionIntro}>
+        <View style={styles.sectionIntroLeft}>
+          <Text style={styles.eyebrow}>Section I</Text>
+          <Text style={styles.sectionH1}>
+            The <Text style={styles.coverItalic}>scorecard</Text>
+            <Text style={styles.coverPunctuation}>.</Text>
+          </Text>
+        </View>
+        <View style={styles.sectionIntroRight}>
+          <Text style={styles.sectionBody}>
+            Three weighted sections combined into one overall rating.
+            SB 553 is weighted at 50%, ASIS at 30%, and the site hazard
+            profile at 20% of the final score.
+          </Text>
+        </View>
       </View>
 
-      <View style={[styles.overallBlock, { borderColor: risk.border }]}>
-        <View
-          style={[
-            styles.overallScoreBubble,
-            {
-              backgroundColor: risk.bg,
-              borderColor: risk.border,
-            },
-          ]}
-        >
-          <Text
-            style={[styles.overallScoreNumber, { color: risk.text }]}
-          >
+      {/* Section score entries */}
+      <ScoreEntry
+        section="sb553"
+        label="SB 553 Compliance"
+        sub="Statutory"
+        score={scores.sb553Score}
+        weight={50}
+      />
+      <ScoreEntry
+        section="asis"
+        label="ASIS WVPI AA-2020"
+        sub="Professional standard"
+        score={scores.asisScore}
+        weight={30}
+      />
+      <ScoreEntry
+        section="hazard"
+        label="Site Hazard Profile"
+        sub="Site profile"
+        score={scores.hazardScore}
+        weight={20}
+      />
+
+      {/* Overall — massive display numeral */}
+      <View style={styles.overallWrap}>
+        <View style={styles.overallNumberColumn}>
+          <Text style={[styles.eyebrow, styles.overallEyebrow]}>
+            Overall program rating
+          </Text>
+          <Text style={[styles.overallNumber, { color: overallTone }]}>
             {scores.overallScore}
           </Text>
-          <Text
-            style={[styles.overallScoreLabel, { color: risk.text }]}
-          >
-            Overall
-          </Text>
         </View>
-        <View style={styles.overallTextBlock}>
-          <Text style={styles.overallRatingLabel}>
-            Overall Program Rating
+        <View style={styles.overallRight}>
+          <Text style={[styles.overallLabel, { color: overallTone }]}>
+            {riskMeta.label}
+            <Text style={styles.coverPunctuation}>.</Text>
           </Text>
-          <Text style={styles.overallRatingTitle}>{riskLabel}</Text>
-          <Text style={styles.overallDescription}>{description}</Text>
+          <Text style={styles.overallDescription}>{riskMeta.description}</Text>
         </View>
       </View>
 
-      {topFindings.length > 0 && (
-        <>
-          <Text style={styles.h2}>Top Critical Findings</Text>
-          {topFindings.map((g) => (
-            <View key={g.question.id} style={styles.findingItem}>
-              <View style={styles.findingTopLine}>
-                <Text style={styles.findingBadge}>CRITICAL</Text>
-                <Text style={styles.findingId}>{g.question.id}</Text>
-              </View>
-              <Text style={styles.findingText}>{g.question.question}</Text>
-            </View>
-          ))}
-        </>
-      )}
-
-      <Footer />
+      <RunningFooter />
     </Page>
+  );
+}
+
+function ScoreEntry({
+  section,
+  label,
+  sub,
+  score,
+  weight,
+}: {
+  section: "sb553" | "asis" | "hazard";
+  label: string;
+  sub: string;
+  score: number;
+  weight: number;
+}) {
+  const level = scoreToRiskLevel(score);
+  const tone = toneForRisk(level);
+  const riskLabel = getRiskLabel(level).label;
+
+  return (
+    <View style={styles.scoreEntry} wrap={false}>
+      <Text style={styles.scoreEntryRoman}>{SECTION_ROMANS[section]}</Text>
+      <View style={styles.scoreEntryMeta}>
+        <Text style={styles.eyebrow}>{sub}</Text>
+        <Text style={styles.scoreEntryLabel}>{label}</Text>
+        <Text style={styles.scoreEntryWeight}>
+          Weighted {weight}% of overall score
+        </Text>
+      </View>
+      <View style={styles.scoreEntryValueWrap}>
+        <View style={styles.scoreEntryValueLine}>
+          <Text style={styles.eyebrow}>Score</Text>
+          <Text style={[styles.scoreEntryValue, { color: tone }]}>
+            {score}
+            <Text style={styles.scoreEntryPct}>%</Text>
+          </Text>
+        </View>
+        <Text style={[styles.scoreEntryRisk, { color: tone }]}>
+          {riskLabel}
+        </Text>
+      </View>
+    </View>
   );
 }
 
 function GapAnalysisPage({ gaps }: { gaps: ReportGap[] }) {
   return (
     <Page size="LETTER" style={styles.page} wrap>
-      <Text style={styles.h1}>Gap Analysis</Text>
-      <Text style={styles.h1Sub}>
-        {gaps.length === 0
-          ? "No gaps identified. All questions answered yes or n/a."
-          : `${gaps.length} finding${
-              gaps.length === 1 ? "" : "s"
-            } requiring attention, sorted by severity.`}
-      </Text>
+      <RunningHeader />
+
+      <View style={styles.sectionIntro}>
+        <View style={styles.sectionIntroLeft}>
+          <Text style={styles.eyebrow}>Section II</Text>
+          <Text style={styles.sectionH1}>
+            The <Text style={styles.coverItalic}>gap</Text> analysis
+            <Text style={styles.coverPunctuation}>.</Text>
+          </Text>
+        </View>
+        <View style={styles.sectionIntroRight}>
+          <Text style={styles.sectionBody}>
+            {gaps.length === 0
+              ? "No gaps identified. Every question answered yes or n/a — review for honesty before relying on this posture."
+              : `${gaps.length} finding${gaps.length === 1 ? "" : "s"} requiring attention. Sorted by weight, then by response severity.`}
+          </Text>
+        </View>
+      </View>
 
       {gaps.length > 0 && (
-        <View style={styles.table}>
-          <View style={styles.tableHeaderRow} fixed>
-            <Text style={[styles.th, { width: "12%" }]}>SECTION</Text>
-            <Text style={[styles.th, { width: "52%" }]}>FINDING</Text>
-            <Text style={[styles.th, { width: "16%" }]}>RESPONSE</Text>
-            <Text style={[styles.th, { width: "20%" }]}>PRIORITY</Text>
+        <>
+          <View style={styles.tableHeader} fixed>
+            <Text style={[styles.th, { width: "6%" }]}>§</Text>
+            <Text style={[styles.th, { width: "10%" }]}>Item</Text>
+            <Text style={[styles.th, { width: "56%" }]}>Finding</Text>
+            <Text style={[styles.th, { width: "14%" }]}>Response</Text>
+            <Text style={[styles.th, { width: "14%", textAlign: "right" }]}>
+              Priority
+            </Text>
           </View>
 
-          {gaps.map((gap, idx) => {
-            const q = gap.question;
-            const priority =
-              q.weight === 3 ? "Critical" : q.weight === 2 ? "High" : "Medium";
-            const priorityColor =
-              q.weight === 3
-                ? riskPdfColors("critical")
-                : q.weight === 2
-                  ? riskPdfColors("high")
-                  : { bg: "#F1F5F9", text: "#475569", border: "#CBD5E1", accent: "#475569" };
-            const responseColor =
-              gap.response === "no"
-                ? riskPdfColors("critical")
-                : riskPdfColors("high");
-            return (
-              <View
-                key={q.id}
-                style={[
-                  styles.tableRow,
-                  idx === gaps.length - 1 ? styles.tableRowLast : {},
-                ]}
-                wrap={false}
-              >
-                <View style={{ width: "12%" }}>
-                  <Text style={styles.tdMono}>
-                    {sectionMeta[q.section].label.split(" ")[0]}
-                  </Text>
-                </View>
-                <View style={{ width: "52%", paddingRight: 6 }}>
-                  <Text style={styles.tdMono}>{q.id}</Text>
-                  <Text style={styles.td}>{q.question}</Text>
-                </View>
-                <View style={{ width: "16%" }}>
-                  <Text
-                    style={[
-                      styles.pill,
-                      {
-                        backgroundColor: responseColor.bg,
-                        borderColor: responseColor.border,
-                        color: responseColor.text,
-                      },
-                    ]}
-                  >
-                    {gap.response === "no" ? "No" : "Partial"}
-                  </Text>
-                </View>
-                <View style={{ width: "20%" }}>
-                  <Text
-                    style={[
-                      styles.pill,
-                      {
-                        backgroundColor: priorityColor.bg,
-                        borderColor: priorityColor.border,
-                        color: priorityColor.text,
-                      },
-                    ]}
-                  >
-                    {priority}
-                  </Text>
-                </View>
-              </View>
-            );
-          })}
-        </View>
+          {gaps.map((gap) => (
+            <GapRow key={gap.question.id} gap={gap} />
+          ))}
+        </>
       )}
 
-      <Footer />
+      <RunningFooter />
     </Page>
+  );
+}
+
+function GapRow({ gap }: { gap: ReportGap }) {
+  const q = gap.question;
+  const priorityLabel =
+    q.weight === 3 ? "Critical" : q.weight === 2 ? "High" : "Medium";
+  const priorityTone =
+    q.weight === 3
+      ? palette.riskRed
+      : q.weight === 2
+        ? palette.warmMuted
+        : palette.warmMutedSoft;
+  const responseTone =
+    gap.response === "no" ? palette.riskRed : palette.warmMuted;
+
+  return (
+    <View style={styles.tableRow} wrap={false}>
+      <Text style={styles.tdRoman}>{SECTION_ROMANS[q.section]}</Text>
+      <Text style={styles.tdId}>{q.id}</Text>
+      <View style={styles.tdFinding}>
+        <Text style={styles.tdFindingText}>{q.question}</Text>
+        <Text style={styles.tdFindingCategory}>{q.category}</Text>
+      </View>
+      <Text style={[styles.tdResponse, { color: responseTone }]}>
+        {gap.response === "no" ? "No" : "Partial"}
+      </Text>
+      <Text style={[styles.tdPriority, { color: priorityTone }]}>
+        {priorityLabel}
+      </Text>
+    </View>
   );
 }
 
@@ -745,49 +891,77 @@ function RecommendationsPage({ gaps }: { gaps: ReportGap[] }) {
     (g) => g.question.weight === 3 && g.response === "no",
   );
 
-  if (criticalFailures.length === 0) {
-    return (
-      <Page size="LETTER" style={styles.page}>
-        <Text style={styles.h1}>Recommended Remediation</Text>
-        <Text style={styles.h1Sub}>
-          No critical (weight 3) findings require immediate remediation.
-          Review the Gap Analysis for lower-priority improvements.
-        </Text>
-        <Footer />
-      </Page>
-    );
-  }
-
   return (
     <Page size="LETTER" style={styles.page} wrap>
-      <Text style={styles.h1}>Recommended Remediation</Text>
-      <Text style={styles.h1Sub}>
-        {criticalFailures.length} critical finding
-        {criticalFailures.length === 1 ? "" : "s"} with concrete next steps.
-      </Text>
+      <RunningHeader />
 
-      {criticalFailures.map((gap) => {
-        const rec = recommendations[gap.question.id];
-        return (
-          <View key={gap.question.id} style={styles.recCard} wrap={false}>
-            <View style={styles.recTopRow}>
-              <Text style={styles.recBadge}>CRITICAL</Text>
-              <Text style={styles.recId}>{gap.question.id}</Text>
-            </View>
-            <Text style={styles.recQuestion}>{gap.question.question}</Text>
-            <Text style={styles.recGuidance}>
-              {rec ?? "Remediation guidance for this item is pending."}
+      <View style={styles.sectionIntro}>
+        <View style={styles.sectionIntroLeft}>
+          <Text style={styles.eyebrow}>Section III</Text>
+          <Text style={styles.sectionH1}>
+            Where to{" "}
+            <Text style={[styles.coverItalic, { color: palette.riskRed }]}>
+              start
             </Text>
-          </View>
-        );
-      })}
+            <Text style={styles.coverPunctuation}>.</Text>
+          </Text>
+        </View>
+        <View style={styles.sectionIntroRight}>
+          <Text style={styles.sectionBody}>
+            {criticalFailures.length === 0
+              ? "No critical failures. Review the Gap Analysis for lower-priority items that still deserve attention."
+              : `${criticalFailures.length} critical finding${criticalFailures.length === 1 ? "" : "s"} with concrete remediation guidance. Each carries direct statutory or high-consequence risk exposure.`}
+          </Text>
+        </View>
+      </View>
 
-      <Footer />
+      {criticalFailures.length === 0 ? (
+        <Text style={styles.recEmpty}>
+          No critical (weight 3) findings require immediate remediation.
+        </Text>
+      ) : (
+        criticalFailures.map((gap, idx) => (
+          <RecommendationEntry
+            key={gap.question.id}
+            gap={gap}
+            number={idx + 1}
+          />
+        ))
+      )}
+
+      <RunningFooter />
     </Page>
   );
 }
 
-// ─── Document ────────────────────────────────────────────────────────────────
+function RecommendationEntry({
+  gap,
+  number,
+}: {
+  gap: ReportGap;
+  number: number;
+}) {
+  const rec = recommendations[gap.question.id];
+  return (
+    <View style={styles.recEntry} wrap={false}>
+      <Text style={styles.recNumber}>
+        {String(number).padStart(2, "0")}
+      </Text>
+      <View style={styles.recTitleColumn}>
+        <Text style={styles.recEyebrow}>Critical · {gap.question.id}</Text>
+        <Text style={styles.recTitle}>{gap.question.question}</Text>
+      </View>
+      <View style={styles.recBodyColumn}>
+        <Text style={styles.recBodyLabel}>Remediation</Text>
+        <Text style={styles.recBody}>
+          {rec ?? "Remediation guidance is being prepared for this item."}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+// ─── Document ─────────────────────────────────────────────────────────────────
 
 export function AssessmentReport({
   assessment,
@@ -799,10 +973,10 @@ export function AssessmentReport({
   return (
     <Document
       title={`ReadyState Assessment — ${organization?.name ?? "Report"}`}
-      author="Kestralis"
+      author="Kestralis Group, LLC"
       subject="Workplace Violence Prevention Assessment"
       creator="ReadyState by Kestralis"
-      producer="ReadyState / @react-pdf/renderer"
+      producer="ReadyState · @react-pdf/renderer"
     >
       <CoverPage
         assessment={assessment}
@@ -810,7 +984,7 @@ export function AssessmentReport({
         scores={scores}
         generatedAt={generatedAt}
       />
-      <ExecutiveSummaryPage scores={scores} gaps={gaps} />
+      <ScorecardPage scores={scores} />
       <GapAnalysisPage gaps={gaps} />
       <RecommendationsPage gaps={gaps} />
     </Document>

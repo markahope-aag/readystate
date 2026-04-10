@@ -8,14 +8,11 @@ import {
   type QuestionSection,
 } from "@/lib/assessment/questions";
 import {
-  getRiskColor,
   getRiskLabel,
   getRiskLevel,
   type RiskLevel,
 } from "@/lib/assessment/scoring";
 import { recommendations } from "@/lib/assessment/recommendations";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { DownloadReportButton } from "@/components/download-report-button";
 import { cn } from "@/lib/utils";
 
@@ -39,6 +36,12 @@ const SECTION_SHORT_LABELS: Record<QuestionSection, string> = {
   sb553: "SB 553 Compliance",
   asis: "ASIS Standard",
   hazard: "Site Hazard",
+};
+
+const SECTION_ROMANS: Record<QuestionSection, string> = {
+  sb553: "I",
+  asis: "II",
+  hazard: "III",
 };
 
 const CONSULTATION_URL = "https://meetings.hubspot.com/mark-hope2";
@@ -96,105 +99,250 @@ export default async function ResultsPage({
   const assessedAt = assessment.updated_at ?? assessment.created_at;
 
   return (
-    <>
-      {/* ── Header ─────────────────────────────────────────────────────── */}
-      <header className="border-b bg-card">
-        <div className="mx-auto max-w-5xl px-6 py-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Assessment Report
-              </p>
-              <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
-                {org?.name ?? "Unknown organization"}
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                {[assessment.site_name, assessment.site_address]
-                  .filter(Boolean)
-                  .join(" · ") || "Site details unavailable"}
-              </p>
-              <p className="pt-1 text-xs text-muted-foreground">
-                Assessed {formatDate(assessedAt)}
-              </p>
-            </div>
-
-            <div className="flex flex-col items-start gap-3 sm:items-end">
-              <RiskBadge level={riskLevel} />
-              <DownloadReportButton assessmentId={id} />
-            </div>
-          </div>
+    <div className="min-h-screen bg-paper">
+      {/* ═══ Nav ════════════════════════════════════════════════════════ */}
+      <header className="border-b border-ink">
+        <div className="mx-auto flex max-w-[1400px] items-baseline justify-between px-6 py-5 md:px-12">
+          <Link href="/" className="group flex items-baseline gap-3">
+            <span className="font-display text-[20px] font-medium leading-none tracking-[-0.01em] text-ink">
+              Kestralis
+            </span>
+            <span className="hidden h-3 w-px bg-warm-muted sm:block" />
+            <span className="eyebrow hidden sm:inline">ReadyState</span>
+          </Link>
+          <span className="eyebrow">The report</span>
         </div>
       </header>
 
-      {/* ── Body ───────────────────────────────────────────────────────── */}
-      <main className="mx-auto max-w-5xl space-y-14 px-6 py-12">
-        {/* ─── Score Summary ─────────────────────────────────────────── */}
-        <section className="space-y-6">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            Score Summary
-          </h2>
-          <div className="grid gap-4 md:grid-cols-3">
-            <SectionScoreCard section="sb553" score={scores.sb553_score ?? 0} />
-            <SectionScoreCard section="asis" score={scores.asis_score ?? 0} />
-            <SectionScoreCard section="hazard" score={scores.hazard_score ?? 0} />
+      {/* ═══ Masthead — big editorial splash ════════════════════════════ */}
+      <section className="relative border-b border-ink">
+        <div className="mx-auto max-w-[1400px] px-6 pt-16 pb-16 md:px-12 md:pt-20 md:pb-20">
+          <div className="mb-12 flex flex-wrap items-baseline justify-between gap-4 md:mb-16">
+            <div className="flex items-baseline gap-6">
+              <span className="eyebrow">Assessment report</span>
+              <span className="eyebrow hidden md:inline">
+                Issued · {formatDate(assessedAt)}
+              </span>
+            </div>
+            <DownloadReportButton assessmentId={id} />
           </div>
-          <OverallScoreBlock
-            score={scores.overall_score ?? 0}
-            riskLevel={riskLevel}
-          />
-        </section>
 
-        {/* ─── Gap Analysis ──────────────────────────────────────────── */}
-        <section className="space-y-4">
-          <div>
-            <h2 className="text-xl font-semibold">Gap Analysis</h2>
-            <p className="text-sm text-muted-foreground">
-              {gaps.length === 0
-                ? "No gaps identified. All questions answered 'yes' or 'n/a'."
-                : `${gaps.length} finding${
-                    gaps.length === 1 ? "" : "s"
-                  } requiring attention, sorted by severity.`}
-            </p>
-          </div>
-          {gaps.length > 0 && <GapTable gaps={gaps} />}
-        </section>
-
-        {/* ─── Recommendations ───────────────────────────────────────── */}
-        {topCritical.length > 0 && (
-          <section className="space-y-4">
-            <div>
-              <h2 className="text-xl font-semibold">Recommended Next Steps</h2>
-              <p className="text-sm text-muted-foreground">
-                Top {topCritical.length} critical finding
-                {topCritical.length === 1 ? "" : "s"} — start here. Each
-                carries direct statutory or high-consequence risk.
+          {/* Org name — oversized Fraunces */}
+          <div className="grid gap-10 md:grid-cols-12 md:gap-8">
+            <div className="md:col-span-8">
+              <h1 className="font-display text-[48px] font-light leading-[0.98] tracking-[-0.022em] text-ink md:text-[88px] lg:text-[112px]">
+                {org?.name ?? "Unknown organization"}
+                <span className="text-warm-muted">.</span>
+              </h1>
+              <p className="mt-6 font-display text-[18px] font-light italic leading-snug text-warm-muted md:text-[22px]">
+                {assessment.site_name ?? "—"}
+                {assessment.site_address ? (
+                  <span className="text-warm-muted-soft">
+                    {" · "}
+                    {assessment.site_address}
+                  </span>
+                ) : null}
               </p>
             </div>
-            <div className="space-y-3">
-              {topCritical.map(({ question }) => (
-                <RecommendationCard key={question.id} question={question} />
+
+            {/* Risk band */}
+            <div className="md:col-span-4">
+              <RiskBand level={riskLevel} />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ Score summary — typographic, no rings ══════════════════════ */}
+      <section className="border-b border-ink">
+        <div className="mx-auto max-w-[1400px] px-6 py-20 md:px-12 md:py-24">
+          <div className="mb-12 grid gap-10 md:mb-16 md:grid-cols-12">
+            <div className="md:col-span-4">
+              <p className="eyebrow mb-3">Section I</p>
+              <h2 className="font-display text-[44px] font-light leading-[0.95] tracking-[-0.02em] text-ink md:text-[64px]">
+                The{" "}
+                <span className="italic text-forest">scorecard</span>
+                <span className="text-warm-muted">.</span>
+              </h2>
+            </div>
+            <div className="md:col-span-6 md:col-start-7">
+              <p className="text-[16px] leading-[1.7] text-ink md:text-[17px]">
+                Three weighted sections, one overall rating. Each
+                section is scored independently from its own questions,
+                then combined via the standard ReadyState weighting
+                (SB 553 at 50%, ASIS at 30%, Site Hazard at 20%).
+              </p>
+            </div>
+          </div>
+
+          {/* Three section scores as editorial entries */}
+          <div className="space-y-0 border-t border-ink">
+            <SectionScoreEntry
+              section="sb553"
+              score={scores.sb553_score ?? 0}
+              weightPercent={50}
+            />
+            <SectionScoreEntry
+              section="asis"
+              score={scores.asis_score ?? 0}
+              weightPercent={30}
+            />
+            <SectionScoreEntry
+              section="hazard"
+              score={scores.hazard_score ?? 0}
+              weightPercent={20}
+            />
+          </div>
+
+          {/* Overall — massive Fraunces display */}
+          <div className="mt-20 border-t-2 border-ink pt-16 md:mt-24 md:pt-20">
+            <OverallBlock
+              score={scores.overall_score ?? 0}
+              riskLevel={riskLevel}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ Gap analysis ═══════════════════════════════════════════════ */}
+      <section className="border-b border-ink">
+        <div className="mx-auto max-w-[1400px] px-6 py-20 md:px-12 md:py-24">
+          <div className="mb-12 grid gap-10 md:mb-16 md:grid-cols-12">
+            <div className="md:col-span-4">
+              <p className="eyebrow mb-3">Section II</p>
+              <h2 className="font-display text-[44px] font-light leading-[0.95] tracking-[-0.02em] text-ink md:text-[64px]">
+                The{" "}
+                <span className="italic text-forest">gap</span>
+                <br />
+                analysis
+                <span className="text-warm-muted">.</span>
+              </h2>
+            </div>
+            <div className="md:col-span-6 md:col-start-7">
+              <p className="text-[16px] leading-[1.7] text-ink md:text-[17px]">
+                {gaps.length === 0
+                  ? "No gaps identified. Every question answered yes or n/a — an uncommonly strong posture that should be reviewed for honesty before relying on it."
+                  : `${gaps.length} finding${gaps.length === 1 ? "" : "s"} requiring attention. Sorted by weight (critical first), then by response severity. Every finding ties to a specific statutory or standard requirement.`}
+              </p>
+            </div>
+          </div>
+
+          {gaps.length > 0 && <GapTable gaps={gaps} />}
+        </div>
+      </section>
+
+      {/* ═══ Recommendations ════════════════════════════════════════════ */}
+      {topCritical.length > 0 && (
+        <section className="border-b border-ink">
+          <div className="mx-auto max-w-[1400px] px-6 py-20 md:px-12 md:py-24">
+            <div className="mb-12 grid gap-10 md:mb-16 md:grid-cols-12">
+              <div className="md:col-span-4">
+                <p className="eyebrow mb-3">Section III</p>
+                <h2 className="font-display text-[44px] font-light leading-[0.95] tracking-[-0.02em] text-ink md:text-[64px]">
+                  Where to{" "}
+                  <span className="italic text-risk-red">start</span>
+                  <span className="text-warm-muted">.</span>
+                </h2>
+              </div>
+              <div className="md:col-span-6 md:col-start-7">
+                <p className="text-[16px] leading-[1.7] text-ink md:text-[17px]">
+                  The top {topCritical.length} critical finding
+                  {topCritical.length === 1 ? "" : "s"}, with concrete
+                  remediation guidance. These carry direct statutory
+                  exposure — close them first.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-0">
+              {topCritical.map(({ question }, idx) => (
+                <RecommendationEntry
+                  key={question.id}
+                  question={question}
+                  number={idx + 1}
+                />
               ))}
             </div>
-          </section>
-        )}
-
-        {/* ─── Footer CTA ────────────────────────────────────────────── */}
-        <section className="flex flex-col items-center justify-center gap-3 border-t pt-10 sm:flex-row">
-          <a
-            href={CONSULTATION_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Button size="lg">Schedule a Consultation</Button>
-          </a>
-          <Link href="/assessment/new">
-            <Button size="lg" variant="outline">
-              Start New Assessment
-            </Button>
-          </Link>
+          </div>
         </section>
-      </main>
-    </>
+      )}
+
+      {/* ═══ Colophon / CTA ═════════════════════════════════════════════ */}
+      <section className="border-b border-ink bg-ink text-paper">
+        <div className="mx-auto max-w-[1400px] px-6 py-20 md:px-12 md:py-28">
+          <div className="grid gap-10 md:grid-cols-12 md:items-end">
+            <div className="md:col-span-8">
+              <p className="eyebrow mb-6 text-sand">
+                Next movement
+              </p>
+              <h2 className="font-display text-[44px] font-light leading-[0.95] tracking-[-0.025em] text-paper md:text-[80px]">
+                Close the{" "}
+                <span className="italic text-sand">gaps</span>
+                <span className="text-warm-muted-soft">.</span>
+              </h2>
+            </div>
+            <div className="md:col-span-4">
+              <p className="mb-8 text-[15px] leading-[1.7] text-sand-soft">
+                Schedule a free consultation to walk through the
+                findings and build a remediation plan, or start a
+                fresh assessment for another site.
+              </p>
+              <div className="flex flex-col gap-4">
+                <a
+                  href={CONSULTATION_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group inline-flex items-baseline gap-3 border-b border-sand pb-1 font-display text-[20px] italic text-paper"
+                >
+                  <span>Schedule a consultation</span>
+                  <span className="transition-transform duration-300 group-hover:translate-x-1">
+                    →
+                  </span>
+                </a>
+                <Link
+                  href="/assessment/new"
+                  className="group inline-flex items-baseline gap-3 pb-1 font-display text-[15px] italic text-sand-soft"
+                >
+                  <span className="link-editorial">
+                    Start another assessment
+                  </span>
+                  <span className="transition-transform duration-300 group-hover:translate-x-1">
+                    →
+                  </span>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ Footer ═════════════════════════════════════════════════════ */}
+      <footer className="border-t border-sand bg-paper">
+        <div className="mx-auto max-w-[1400px] px-6 py-10 md:px-12">
+          <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-baseline">
+            <div>
+              <p className="font-display text-[18px] font-medium italic text-ink">
+                ReadyState
+              </p>
+              <p className="mt-1 text-xs text-warm-muted">
+                A product of Kestralis Group, LLC ·{" "}
+                <span className="italic">California, 2026</span>
+              </p>
+            </div>
+            <div className="flex flex-col items-start gap-1 text-xs text-warm-muted md:items-end">
+              <p>
+                Structured self-assessment against Cal. Labor Code
+                §6401.9 and ASIS WVPI AA-2020.
+              </p>
+              <p>
+                Not legal advice. Powered by{" "}
+                <span className="italic">Asymmetric Marketing</span>.
+              </p>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </div>
   );
 }
 
@@ -209,11 +357,9 @@ function buildGapList(responses: ResponseRow[]): Gap[] {
     gaps.push({ question, response: r.response, notes: r.notes });
   }
   return gaps.sort((a, b) => {
-    // Weight descending (critical first)
     if (b.question.weight !== a.question.weight) {
       return b.question.weight - a.question.weight;
     }
-    // Within same weight: 'no' before 'partial'
     if (a.response !== b.response) {
       return a.response === "no" ? -1 : 1;
     }
@@ -232,168 +378,159 @@ function formatDate(iso: string | null): string {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function RiskBadge({ level }: { level: RiskLevel }) {
-  const colors = getRiskColor(level);
-  const { label } = getRiskLabel(level);
+function RiskBand({ level }: { level: RiskLevel }) {
+  const { label, description } = getRiskLabel(level);
+  const toneClass = toneForRisk(level);
   return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full border px-4 py-1.5 text-sm font-semibold",
-        colors.bg,
-        colors.text,
-        colors.border,
-      )}
-    >
-      {label}
-    </span>
-  );
-}
-
-function ScoreRing({
-  value,
-  colorClass,
-  size = 96,
-}: {
-  value: number;
-  colorClass: string;
-  size?: number;
-}) {
-  const strokeWidth = 8;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (Math.min(100, Math.max(0, value)) / 100) * circumference;
-  return (
-    <div
-      className={cn("relative shrink-0", colorClass)}
-      style={{ width: size, height: size }}
-    >
-      <svg
-        width={size}
-        height={size}
-        viewBox={`0 0 ${size} ${size}`}
-        className="-rotate-90"
+    <div className="border-2 border-ink p-6 md:p-7">
+      <p className="eyebrow mb-3">Overall rating</p>
+      <p
+        className={cn(
+          "font-display text-[36px] font-light italic leading-[1] md:text-[44px]",
+          toneClass,
+        )}
       >
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          className="stroke-muted"
-          strokeWidth={strokeWidth}
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={strokeWidth}
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-        />
-      </svg>
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <span className="text-xl font-bold text-foreground">{value}</span>
-      </div>
+        {label}
+        <span className="text-warm-muted">.</span>
+      </p>
+      <p className="mt-4 text-[13px] leading-[1.6] text-warm-muted">
+        {description}
+      </p>
     </div>
   );
 }
 
-function SectionScoreCard({
+function SectionScoreEntry({
   section,
   score,
+  weightPercent,
 }: {
   section: QuestionSection;
   score: number;
+  weightPercent: number;
 }) {
   const level = getRiskLevel(score);
-  const colors = getRiskColor(level);
+  const toneClass = toneForRisk(level);
   return (
-    <Card>
-      <CardContent className="flex items-center gap-4 p-5">
-        <ScoreRing value={score} colorClass={colors.accent} />
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {SECTION_SHORT_LABELS[section]}
-          </p>
-          <p className="mt-1 text-3xl font-bold leading-none">{score}%</p>
-          <p className="mt-2 text-xs text-muted-foreground">
-            {getRiskLabel(level).label}
-          </p>
+    <article className="group grid grid-cols-12 items-baseline gap-4 border-b border-ink/30 py-10 md:gap-10 md:py-14">
+      <div className="col-span-12 md:col-span-1">
+        <span className="font-display text-[32px] font-light italic leading-none text-forest md:text-[44px]">
+          {SECTION_ROMANS[section]}
+        </span>
+      </div>
+
+      <div className="col-span-12 md:col-span-5">
+        <p className="eyebrow mb-2">
+          {section === "sb553"
+            ? "Statutory"
+            : section === "asis"
+              ? "Professional standard"
+              : "Site profile"}
+        </p>
+        <h3 className="font-display text-[28px] font-light leading-[1.02] tracking-[-0.015em] text-ink md:text-[36px]">
+          {SECTION_SHORT_LABELS[section]}
+        </h3>
+        <p className="mt-2 font-mono tabular-figures text-[11px] text-warm-muted">
+          Weighted {weightPercent}% of overall score
+        </p>
+      </div>
+
+      <div className="col-span-12 md:col-span-6">
+        <div className="flex items-baseline justify-between gap-6 border-b border-ink/20 pb-2">
+          <span className="eyebrow">Score</span>
+          <span
+            className={cn(
+              "font-display text-[64px] font-light leading-none tabular-figures md:text-[96px]",
+              toneClass,
+            )}
+          >
+            {score}
+            <span className="text-warm-muted">%</span>
+          </span>
         </div>
-      </CardContent>
-    </Card>
+        <p
+          className={cn(
+            "mt-3 font-display text-[14px] italic",
+            toneClass,
+          )}
+        >
+          {getRiskLabel(level).label}
+        </p>
+      </div>
+    </article>
   );
 }
 
-function OverallScoreBlock({
+function OverallBlock({
   score,
   riskLevel,
 }: {
   score: number;
   riskLevel: RiskLevel;
 }) {
-  const colors = getRiskColor(riskLevel);
   const meta = getRiskLabel(riskLevel);
+  const toneClass = toneForRisk(riskLevel);
   return (
-    <Card className={cn("border-2", colors.border)}>
-      <CardContent className="p-8">
-        <div className="flex flex-col items-center gap-6 md:flex-row md:items-center">
-          <div
-            className={cn(
-              "flex shrink-0 flex-col items-center justify-center rounded-full border-2 px-8 py-6",
-              colors.bg,
-              colors.text,
-              colors.border,
-            )}
-          >
-            <div className="text-5xl font-bold leading-none">{score}</div>
-            <div className="mt-1 text-[10px] font-semibold uppercase tracking-wider">
-              Overall
-            </div>
-          </div>
-          <div className="flex-1 space-y-2 text-center md:text-left">
-            <p className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-              Overall Program Rating
-            </p>
-            <p className="text-xl font-semibold">{meta.label}</p>
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              {meta.description}
-            </p>
-          </div>
+    <div className="grid gap-10 md:grid-cols-12 md:gap-16">
+      <div className="md:col-span-6">
+        <p className="eyebrow mb-4">Overall program rating</p>
+        <div
+          className={cn(
+            "font-display font-light leading-[0.8] tabular-figures",
+            toneClass,
+          )}
+        >
+          <span className="block text-[200px] tracking-[-0.04em] md:text-[320px]">
+            {score}
+          </span>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+      <div className="md:col-span-5 md:col-start-8">
+        <p
+          className={cn(
+            "font-display text-[40px] font-light italic leading-[0.95] tracking-[-0.01em] md:text-[56px]",
+            toneClass,
+          )}
+        >
+          {meta.label}
+          <span className="text-warm-muted">.</span>
+        </p>
+        <p className="mt-8 text-[15px] leading-[1.7] text-ink md:text-[16px]">
+          {meta.description}
+        </p>
+      </div>
+    </div>
   );
 }
 
 function GapTable({ gaps }: { gaps: Gap[] }) {
   return (
-    <Card>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="border-b bg-muted/30">
-            <tr>
-              <TableHead>Section</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead className="min-w-[280px]">Finding</TableHead>
-              <TableHead>Response</TableHead>
-              <TableHead>Priority</TableHead>
-            </tr>
-          </thead>
-          <tbody>
-            {gaps.map(({ question, response }) => (
-              <GapRow key={question.id} question={question} response={response} />
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Card>
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse">
+        <thead>
+          <tr className="border-t border-b border-ink">
+            <Th className="min-w-[80px]">§</Th>
+            <Th className="min-w-[120px]">Item</Th>
+            <Th className="w-full">Finding</Th>
+            <Th className="min-w-[110px]">Response</Th>
+            <Th className="min-w-[120px] text-right">Priority</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {gaps.map(({ question, response }) => (
+            <GapRow
+              key={question.id}
+              question={question}
+              response={response}
+            />
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
-function TableHead({
+function Th({
   children,
   className,
 }: {
@@ -403,7 +540,7 @@ function TableHead({
   return (
     <th
       className={cn(
-        "px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground",
+        "py-3 pr-4 text-left font-display text-[12px] font-medium italic text-forest",
         className,
       )}
     >
@@ -419,115 +556,129 @@ function GapRow({
   question: Question;
   response: "no" | "partial";
 }) {
-  const isCriticalNo = response === "no" && question.weight === 3;
   const priorityLabel =
-    question.weight === 3 ? "Critical" : question.weight === 2 ? "High" : "Medium";
+    question.weight === 3
+      ? "Critical"
+      : question.weight === 2
+        ? "High"
+        : "Medium";
+  const priorityTone =
+    question.weight === 3
+      ? "text-risk-red"
+      : question.weight === 2
+        ? "text-warm-muted"
+        : "text-warm-muted-soft";
+  const responseTone =
+    response === "no" ? "text-risk-red" : "text-warm-muted";
+
   return (
-    <tr
-      className={cn(
-        "border-b last:border-0",
-        isCriticalNo && "bg-red-50/40",
-      )}
-    >
-      <td className="whitespace-nowrap px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {sectionMeta[question.section].label.split(" ")[0]}
+    <tr className="border-b border-ink/20 align-top">
+      <td className="py-5 pr-4 font-mono text-[10px] uppercase tracking-wide text-warm-muted">
+        {SECTION_ROMANS[question.section]}
       </td>
-      <td className="px-4 py-3 text-xs text-muted-foreground">
-        {question.category}
+      <td className="py-5 pr-4 font-mono text-[10px] text-warm-muted-soft">
+        {question.id}
       </td>
-      <td className="px-4 py-3 text-sm leading-snug">
-        <span className="mr-2 font-mono text-xs text-muted-foreground">
-          {question.id}
+      <td className="py-5 pr-4">
+        <p className="font-display text-[17px] font-light leading-snug text-ink md:text-[18px]">
+          {question.question}
+        </p>
+        <p className="mt-1 font-display text-[12px] italic text-warm-muted-soft">
+          {question.category}
+        </p>
+      </td>
+      <td className={cn("py-5 pr-4", responseTone)}>
+        <span className="font-display text-[16px] italic">
+          {response === "no" ? "No" : "Partial"}
         </span>
-        {question.question}
       </td>
-      <td className="whitespace-nowrap px-4 py-3">
-        <ResponsePill response={response} />
-      </td>
-      <td className="whitespace-nowrap px-4 py-3">
-        <PriorityPill weight={question.weight} label={priorityLabel} />
+      <td className={cn("py-5 pr-0 text-right", priorityTone)}>
+        <span className="font-display text-[16px] italic">
+          {priorityLabel}
+        </span>
       </td>
     </tr>
   );
 }
 
-function ResponsePill({ response }: { response: "no" | "partial" }) {
-  return (
-    <span
-      className={cn(
-        "inline-block rounded-full border px-2 py-0.5 text-xs font-semibold",
-        response === "no"
-          ? "border-red-200 bg-red-50 text-red-900"
-          : "border-amber-200 bg-amber-50 text-amber-900",
-      )}
-    >
-      {response === "no" ? "No" : "Partial"}
-    </span>
-  );
-}
-
-function PriorityPill({ weight, label }: { weight: 1 | 2 | 3; label: string }) {
-  const cls =
-    weight === 3
-      ? "border-red-200 bg-red-50 text-red-900"
-      : weight === 2
-        ? "border-amber-200 bg-amber-50 text-amber-900"
-        : "border-border bg-muted text-muted-foreground";
-  return (
-    <span
-      className={cn(
-        "inline-block rounded-full border px-2 py-0.5 text-xs font-semibold",
-        cls,
-      )}
-    >
-      {label}
-    </span>
-  );
-}
-
-function RecommendationCard({ question }: { question: Question }) {
+function RecommendationEntry({
+  question,
+  number,
+}: {
+  question: Question;
+  number: number;
+}) {
   const rec = recommendations[question.id];
   return (
-    <Card className="border-destructive/30">
-      <CardContent className="space-y-3 p-5">
-        <div className="flex items-start gap-3">
-          <span className="mt-0.5 shrink-0 rounded-sm bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-destructive">
-            Critical
-          </span>
-          <div className="flex-1 space-y-3">
-            <p className="text-sm font-medium leading-snug">
-              {question.question}
-            </p>
-            <div className="border-l-2 border-primary/40 pl-3 text-sm leading-relaxed">
-              {rec ?? "Remediation guidance is being prepared for this item."}
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+    <article className="grid grid-cols-12 gap-4 border-b border-ink/30 py-10 md:gap-10 md:py-14">
+      <div className="col-span-12 md:col-span-1">
+        <span className="font-display text-[32px] font-light italic leading-none text-risk-red md:text-[44px]">
+          {String(number).padStart(2, "0")}
+        </span>
+      </div>
+      <div className="col-span-12 md:col-span-5">
+        <p className="eyebrow mb-3 text-risk-red">
+          Critical · {question.id}
+        </p>
+        <h3 className="font-display text-[22px] font-light leading-[1.2] text-ink md:text-[26px]">
+          {question.question}
+        </h3>
+      </div>
+      <div className="col-span-12 md:col-span-6">
+        <p className="eyebrow mb-3">Remediation</p>
+        <p className="border-l-2 border-forest pl-5 text-[15px] leading-[1.7] text-ink md:text-[16px]">
+          {rec ?? "Remediation guidance is being prepared for this item."}
+        </p>
+      </div>
+    </article>
   );
+}
+
+function toneForRisk(level: RiskLevel): string {
+  switch (level) {
+    case "low":
+      return "text-forest";
+    case "moderate":
+      return "text-forest-soft";
+    case "high":
+      return "text-sand-deep";
+    case "critical":
+      return "text-risk-red";
+  }
 }
 
 function NoScoresYet({ assessmentId }: { assessmentId: string }) {
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl items-center justify-center px-6">
-      <Card>
-        <CardContent className="space-y-4 p-10 text-center">
-          <h1 className="text-2xl font-semibold">Assessment not yet scored</h1>
-          <p className="text-sm text-muted-foreground">
-            This assessment has not been submitted. Finish answering the
-            questions and click Submit to generate your report.
-          </p>
-          <div className="flex justify-center gap-2 pt-2">
-            <Link href={`/assessment/new?id=${assessmentId}`}>
-              <Button>Resume assessment</Button>
-            </Link>
-            <Link href="/">
-              <Button variant="outline">Home</Button>
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
-    </main>
+    <div className="flex min-h-screen items-center justify-center bg-paper px-6">
+      <div className="max-w-md space-y-5 text-center">
+        <p className="eyebrow">Pending</p>
+        <h1 className="font-display text-[40px] font-light leading-[1] tracking-[-0.015em] text-ink md:text-[56px]">
+          Not yet{" "}
+          <span className="italic text-forest">scored</span>
+          <span className="text-warm-muted">.</span>
+        </h1>
+        <p className="text-sm leading-[1.65] text-warm-muted">
+          This assessment hasn&apos;t been submitted yet. Finish
+          answering the questions and submit to generate the report.
+        </p>
+        <div className="flex justify-center gap-6 pt-2">
+          <Link
+            href={`/assessment/new?id=${assessmentId}`}
+            className="group inline-flex items-baseline gap-2 font-display text-[18px] italic text-ink"
+          >
+            <span className="link-editorial">Resume assessment</span>
+            <span className="transition-transform duration-300 group-hover:translate-x-1">
+              →
+            </span>
+          </Link>
+          <Link
+            href="/"
+            className="group inline-flex items-baseline gap-2 font-display text-[16px] italic text-warm-muted"
+          >
+            <span className="link-editorial">Home</span>
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }
