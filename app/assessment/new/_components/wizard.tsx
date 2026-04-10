@@ -10,7 +10,6 @@ import {
   type QuestionSection,
 } from "@/lib/assessment/questions";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import {
   createOrgAndAssessment,
   saveResponse,
@@ -241,27 +240,94 @@ export function Wizard({
   };
 
   return (
-    <div className="space-y-6">
-      <header className="space-y-3">
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Step {screenIndex + 1} of {SCREENS.length}
-        </p>
-        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-          {currentScreen.label}
-        </h1>
+    <div className="space-y-10">
+      {/* ═══ Editorial page header ══════════════════════════════════ */}
+      <header className="space-y-6">
+        {/* Issue-style meta line */}
+        <div className="flex items-baseline justify-between border-b border-ink pb-3">
+          <p className="eyebrow">
+            Folio{" "}
+            <span className="font-mono tabular-figures text-ink">
+              {String(screenIndex + 1).padStart(2, "0")}
+            </span>
+            <span className="text-warm-muted-soft">
+              {" / "}
+              {String(SCREENS.length).padStart(2, "0")}
+            </span>
+          </p>
+          {currentScreen.kind === "category" && currentScreen.section && (
+            <p className="eyebrow hidden md:block">
+              {currentScreen.section === "sb553"
+                ? "Section I · Statutory"
+                : currentScreen.section === "asis"
+                  ? "Section II · Professional"
+                  : "Section III · Site"}
+            </p>
+          )}
+        </div>
+
+        {/* Title */}
+        {currentScreen.kind === "org-info" ? (
+          <div>
+            <p className="eyebrow mb-3">The instrument</p>
+            <h1 className="font-display text-5xl font-light leading-[0.95] tracking-[-0.02em] text-ink md:text-[64px]">
+              Begin the{" "}
+              <span className="italic text-forest">assessment</span>
+              <span className="text-warm-muted">.</span>
+            </h1>
+            <p className="mt-5 max-w-xl text-[15px] leading-[1.65] text-warm-muted">
+              Tell us about the organization and the specific site
+              being assessed. Each ReadyState assessment is scoped to
+              one site — no averaging across facilities.
+            </p>
+          </div>
+        ) : currentScreen.kind === "review" ? (
+          <div>
+            <p className="eyebrow mb-3">Final folio</p>
+            <h1 className="font-display text-5xl font-light leading-[0.95] tracking-[-0.02em] text-ink md:text-[64px]">
+              Review &amp;{" "}
+              <span className="italic text-forest">submit</span>
+              <span className="text-warm-muted">.</span>
+            </h1>
+          </div>
+        ) : (
+          <div>
+            {currentScreen.category && (
+              <p className="font-display text-[15px] italic text-warm-muted">
+                {currentScreen.section === "sb553"
+                  ? "California Labor Code §6401.9"
+                  : currentScreen.section === "asis"
+                    ? "ASIS WVPI AA-2020"
+                    : "Site Hazard Profile"}
+              </p>
+            )}
+            <h1 className="mt-2 font-display text-[40px] font-light leading-[0.98] tracking-[-0.02em] text-ink md:text-[56px]">
+              {currentScreen.category}
+            </h1>
+          </div>
+        )}
+
+        {/* Section progress — editorial progress bar */}
         {sectionProgress && (
-          <div className="space-y-1 pt-2">
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Section progress</span>
-              <span>
-                {sectionProgress.answered} / {sectionProgress.total} answered
-              </span>
+          <div className="space-y-2 pt-4">
+            <div className="flex items-baseline justify-between">
+              <p className="eyebrow">Section progress</p>
+              <p className="font-mono tabular-figures text-[13px] text-ink">
+                {String(sectionProgress.answered).padStart(2, "0")}
+                <span className="text-warm-muted-soft">
+                  {" / "}
+                  {String(sectionProgress.total).padStart(2, "0")}
+                </span>
+              </p>
             </div>
-            <Progress
-              value={
-                (sectionProgress.answered / sectionProgress.total) * 100
-              }
-            />
+            <div className="relative h-px w-full bg-sand">
+              <div
+                className="absolute inset-y-0 left-0 bg-forest transition-[width] duration-500"
+                style={{
+                  width: `${(sectionProgress.answered / sectionProgress.total) * 100}%`,
+                }}
+              />
+            </div>
           </div>
         )}
       </header>
@@ -291,16 +357,20 @@ export function Wizard({
       )}
 
       {currentScreen.kind !== "org-info" && (
-        <div className="flex items-center justify-between gap-3 border-t pt-6">
-          <Button
-            variant="outline"
+        <div className="flex items-center justify-between gap-3 border-t border-ink pt-8">
+          <button
+            type="button"
             onClick={handleBack}
             disabled={screenIndex === 0}
+            className="group flex items-baseline gap-2 text-[15px] text-ink disabled:cursor-not-allowed disabled:text-warm-muted-soft"
           >
-            ← Back
-          </Button>
+            <span className="transition-transform duration-300 group-hover:-translate-x-1">
+              ←
+            </span>
+            <span className="link-editorial font-display italic">Back</span>
+          </button>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-8">
             {assessmentId && (
               <SaveForLaterButton assessmentId={assessmentId} />
             )}
@@ -308,13 +378,23 @@ export function Wizard({
             {currentScreen.kind !== "review" && (
               <>
                 {!canAdvance && (
-                  <span className="hidden text-xs text-muted-foreground md:inline">
+                  <span className="hidden font-display text-[13px] italic text-warm-muted md:inline">
                     Answer all critical questions to continue
                   </span>
                 )}
-                <Button onClick={handleNext} disabled={!canAdvance}>
-                  Next →
-                </Button>
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  disabled={!canAdvance}
+                  className="group flex items-baseline gap-2 text-[15px] text-ink disabled:cursor-not-allowed disabled:text-warm-muted-soft"
+                >
+                  <span className="link-editorial font-display italic">
+                    Continue
+                  </span>
+                  <span className="transition-transform duration-300 group-hover:translate-x-1">
+                    →
+                  </span>
+                </button>
               </>
             )}
           </div>

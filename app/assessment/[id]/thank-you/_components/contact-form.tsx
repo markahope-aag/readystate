@@ -2,16 +2,6 @@
 
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { submitContactAndSendReport } from "../actions";
 
 interface Props {
@@ -60,99 +50,128 @@ export function ContactForm({ assessmentId, alreadySent, orgName }: Props) {
 
   if (sent) {
     return (
-      <Card className="border-emerald-200 bg-emerald-50/40">
-        <CardContent className="space-y-4 p-8 text-center">
-          <p className="text-xs font-semibold uppercase tracking-wider text-emerald-800">
-            Report delivered
-          </p>
-          <h2 className="text-xl font-semibold text-emerald-950">
-            Your report is on its way.
-          </h2>
-          <p className="text-sm text-emerald-900/80">
-            We&apos;ve emailed your ReadyState SB 553 assessment report
-            {orgName ? ` for ${orgName}` : ""}. It should land in your
-            inbox within a minute or two.{" "}
-            <strong>
-              If you don&apos;t see it, check your spam or promotions
-              folder first — new sender domains often get filtered on
-              first contact.
-            </strong>
-          </p>
-          <div className="pt-2">
-            <button
-              type="button"
-              onClick={() => setSent(false)}
-              className="text-xs font-medium text-emerald-900 underline underline-offset-4 hover:text-emerald-950"
-            >
-              Still didn&apos;t get it? Send to a different email address →
-            </button>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="border border-forest bg-paper p-10">
+        <p className="eyebrow mb-3 text-forest">Delivered</p>
+        <h3 className="font-display text-[36px] font-light italic leading-[1] text-forest md:text-[44px]">
+          On its way.
+        </h3>
+        <p className="mt-6 text-[15px] leading-[1.65] text-ink">
+          We&rsquo;ve emailed your ReadyState SB 553 assessment report
+          {orgName ? (
+            <>
+              {" "}
+              for{" "}
+              <span className="font-display italic text-forest">
+                {orgName}
+              </span>
+            </>
+          ) : null}
+          . It should land in your inbox within a minute or two.
+        </p>
+        <p className="mt-4 rounded-sm border-l-2 border-forest bg-sand-soft/60 py-2 pl-4 text-[13px] leading-[1.6] text-ink">
+          <strong className="font-semibold">
+            If you don&rsquo;t see it,
+          </strong>{" "}
+          check your spam or promotions folder first. New sender
+          domains often get filtered on first contact — mark it as
+          &ldquo;not spam&rdquo; to ensure future deliveries land in
+          the inbox.
+        </p>
+        <div className="mt-8 border-t border-ink/20 pt-6">
+          <button
+            type="button"
+            onClick={() => setSent(false)}
+            className="group inline-flex items-baseline gap-2 font-display text-[14px] italic text-warm-muted hover:text-ink"
+          >
+            <span className="link-editorial">
+              Send to a different email address
+            </span>
+            <span className="transition-transform duration-300 group-hover:translate-x-1">
+              →
+            </span>
+          </button>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-xl">Where should we send it?</CardTitle>
-        <CardDescription>
-          We&apos;ll email your PDF assessment report to the address below.
-          One-time only — we won&apos;t add you to any marketing lists
-          without your permission.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="space-y-2">
-            <Label htmlFor="contact-name">Full name</Label>
-            <Input
-              id="contact-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              autoComplete="name"
-              placeholder="Jane Doe"
-              disabled={submitting}
-            />
-          </div>
+    <form onSubmit={handleSubmit} className="space-y-8">
+      <ThankYouField label="Full name" htmlFor="contact-name">
+        <input
+          id="contact-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+          autoComplete="name"
+          placeholder="Jane Doe"
+          disabled={submitting}
+          className="w-full border-0 border-b border-ink/50 bg-transparent pb-2 pt-1 font-display text-[22px] font-light text-ink placeholder:italic placeholder:text-warm-muted-soft focus:border-ink focus:outline-none focus:ring-0 disabled:cursor-not-allowed md:text-[26px]"
+        />
+      </ThankYouField>
 
-          <div className="space-y-2">
-            <Label htmlFor="contact-email">Work email</Label>
-            <Input
-              id="contact-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-              placeholder="jane@company.com"
-              disabled={submitting}
-            />
-          </div>
+      <ThankYouField label="Work email" htmlFor="contact-email">
+        <input
+          id="contact-email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          autoComplete="email"
+          placeholder="jane@company.com"
+          disabled={submitting}
+          className="w-full border-0 border-b border-ink/50 bg-transparent pb-2 pt-1 font-sans text-[18px] text-ink placeholder:italic placeholder:text-warm-muted-soft focus:border-ink focus:outline-none focus:ring-0 disabled:cursor-not-allowed md:text-[20px]"
+        />
+      </ThankYouField>
 
-          <div className="space-y-2">
-            <Label htmlFor="contact-role">Your role</Label>
-            <Input
-              id="contact-role"
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              required
-              placeholder="Safety Manager, Head of People, etc."
-              disabled={submitting}
-            />
-          </div>
+      <ThankYouField label="Your role" htmlFor="contact-role">
+        <input
+          id="contact-role"
+          value={role}
+          onChange={(e) => setRole(e.target.value)}
+          required
+          placeholder="Safety Manager, Head of People, etc."
+          disabled={submitting}
+          className="w-full border-0 border-b border-ink/50 bg-transparent pb-2 pt-1 font-display text-[20px] font-light text-ink placeholder:italic placeholder:text-warm-muted-soft focus:border-ink focus:outline-none focus:ring-0 disabled:cursor-not-allowed md:text-[22px]"
+        />
+      </ThankYouField>
 
-          <Button
-            type="submit"
-            disabled={submitting}
-            className="w-full"
-            size="lg"
-          >
-            {submitting ? "Sending report…" : "Email My Report"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+      <div className="flex items-baseline justify-end border-t border-ink pt-8">
+        <button
+          type="submit"
+          disabled={submitting}
+          className="group inline-flex items-baseline gap-3 font-display text-[22px] font-light italic text-ink disabled:cursor-not-allowed disabled:text-warm-muted-soft md:text-[28px]"
+        >
+          <span className="link-editorial">
+            {submitting ? "Sending…" : "Send me the report"}
+          </span>
+          <span className="transition-transform duration-300 group-hover:translate-x-2">
+            →
+          </span>
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function ThankYouField({
+  label,
+  htmlFor,
+  children,
+}: {
+  label: string;
+  htmlFor: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-2">
+      <label
+        htmlFor={htmlFor}
+        className="font-display text-[15px] italic text-forest"
+      >
+        {label}
+      </label>
+      {children}
+    </div>
   );
 }

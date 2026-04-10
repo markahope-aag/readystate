@@ -47,11 +47,27 @@ export default async function NewAssessmentPage({ searchParams }: PageProps) {
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8 md:py-12">
-      <Wizard
-        initialAssessment={initialAssessment}
-        initialResponses={initialResponses}
-      />
-    </main>
+    <div className="min-h-screen bg-paper">
+      {/* Minimal editorial header */}
+      <header className="border-b border-ink">
+        <div className="mx-auto flex max-w-[1100px] items-baseline justify-between px-6 py-5 md:px-10">
+          <a href="/" className="group flex items-baseline gap-3">
+            <span className="font-display text-[20px] font-medium leading-none tracking-[-0.01em] text-ink">
+              Kestralis
+            </span>
+            <span className="hidden h-3 w-px bg-warm-muted sm:block" />
+            <span className="eyebrow hidden sm:inline">ReadyState</span>
+          </a>
+          <span className="eyebrow">The assessment</span>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-[1100px] px-6 py-12 md:px-10 md:py-20">
+        <Wizard
+          initialAssessment={initialAssessment}
+          initialResponses={initialResponses}
+        />
+      </main>
+    </div>
   );
 }

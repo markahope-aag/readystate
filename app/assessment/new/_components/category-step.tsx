@@ -24,11 +24,13 @@ export function CategoryStep({
   onNotesChange,
 }: Props) {
   return (
-    <div className="space-y-4">
-      {questions.map((q) => (
+    <div>
+      {questions.map((q, i) => (
         <QuestionCard
           key={q.id}
           question={q}
+          index={i}
+          total={questions.length}
           response={responses[q.id]?.response ?? null}
           notes={responses[q.id]?.notes ?? ""}
           onResponseChange={(r) => onResponseChange(q.id, r)}

@@ -4,48 +4,44 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
-  }
+    /* ─── ReadyState editorial palette (HSL for shadcn token compat) ─── */
+    /* paper #f5f4ed */
+    --background: 51 28% 95%;
+    /* ink #0c0c0a */
+    --foreground: 48 11% 5%;
 
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    /* card = slightly lifted paper */
+    --card: 51 30% 97%;
+    --card-foreground: 48 11% 5%;
+
+    --popover: 51 30% 97%;
+    --popover-foreground: 48 11% 5%;
+
+    /* primary = forest #1f3d2b */
+    --primary: 143 34% 18%;
+    --primary-foreground: 51 28% 95%;
+
+    /* secondary = sand-soft */
+    --secondary: 47 36% 83%;
+    --secondary-foreground: 48 11% 5%;
+
+    /* muted = warm muted soft */
+    --muted: 47 14% 88%;
+    --muted-foreground: 45 9% 39%;
+
+    --accent: 47 36% 83%;
+    --accent-foreground: 48 11% 5%;
+
+    /* risk-red #a02020 */
+    --destructive: 0 67% 38%;
+    --destructive-foreground: 51 28% 95%;
+
+    /* sand for borders / inputs */
+    --border: 47 20% 82%;
+    --input: 47 20% 82%;
+    --ring: 143 34% 18%;
+
+    --radius: 0.25rem; /* sharper, editorial */
   }
 }
 
@@ -53,7 +49,86 @@
   * {
     @apply border-border;
   }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
   body {
-    @apply bg-background text-foreground;
+    @apply bg-paper text-ink;
+    font-family: var(--font-geist-sans), system-ui, sans-serif;
+    font-feature-settings: "ss01", "kern", "liga", "calt";
+  }
+
+  /* Display type defaults — Fraunces with optical size tuning */
+  .font-display {
+    font-family: var(--font-fraunces), Georgia, serif;
+    font-feature-settings: "ss01", "kern", "liga", "calt";
+    font-optical-sizing: auto;
+  }
+
+  /* Subtle selection color in the accent */
+  ::selection {
+    background: #1f3d2b;
+    color: #f5f4ed;
+  }
+}
+
+@layer utilities {
+  /* Hand-drawn rule line — for editorial section dividers */
+  .rule-ink {
+    @apply h-px w-full origin-left bg-ink;
+  }
+
+  .rule-sand {
+    @apply h-px w-full origin-left bg-sand;
+  }
+
+  /* Numeric tabular figures for scores */
+  .tabular-figures {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Small caps eyebrow */
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.22em] text-warm-muted;
+  }
+
+  /* Editorial drop cap for first paragraph */
+  .first-letter-drop::first-letter {
+    font-family: var(--font-fraunces), Georgia, serif;
+    font-size: 4rem;
+    line-height: 0.85;
+    float: left;
+    margin-right: 0.1em;
+    margin-top: 0.05em;
+    color: #1f3d2b;
+    font-style: italic;
+    font-weight: 500;
+  }
+
+  /* Masked underline that draws in on hover */
+  .link-editorial {
+    background-image: linear-gradient(to right, currentColor 0%, currentColor 100%);
+    background-position: 0 100%;
+    background-repeat: no-repeat;
+    background-size: 100% 1px;
+    transition: background-size 300ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .link-editorial:hover {
+    background-size: 100% 2px;
+  }
+
+  /* Grain overlay — subtle texture for paper backgrounds */
+  .grain::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.04;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
 }

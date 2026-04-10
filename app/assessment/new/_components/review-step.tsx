@@ -6,8 +6,6 @@ import {
   questions,
   sectionMeta,
 } from "@/lib/assessment/questions";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { ResponseValue } from "../actions";
 
@@ -19,8 +17,6 @@ interface Props {
   onJumpToQuestion: (questionId: string) => void;
   onSubmit: () => Promise<void>;
 }
-
-type Tone = "positive" | "negative" | "warning" | "neutral";
 
 export function ReviewStep({ responses, onJumpToQuestion, onSubmit }: Props) {
   const [submitting, setSubmitting] = useState(false);
@@ -60,125 +56,188 @@ export function ReviewStep({ responses, onJumpToQuestion, onSubmit }: Props) {
 
   if (submitted) {
     return (
-      <Card>
-        <CardContent className="space-y-2 p-10 text-center">
-          <p className="text-xl font-semibold">Assessment submitted</p>
-          <p className="text-sm text-muted-foreground">
-            Your responses have been saved. A scoring report will be available
-            shortly.
-          </p>
-        </CardContent>
-      </Card>
+      <div className="border-t border-ink py-20 text-center">
+        <p className="eyebrow mb-4">Submitted</p>
+        <h2 className="font-display text-5xl font-light italic text-forest md:text-6xl">
+          Assessment complete.
+        </h2>
+        <p className="mt-6 text-[15px] text-warm-muted">
+          Preparing your report…
+        </p>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {sectionSummaries.map(({ section, total, counts }) => (
-        <Card key={section}>
-          <CardHeader>
-            <CardTitle className="text-lg">
-              {sectionMeta[section].label}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-5 gap-2">
-              <SummaryPill label="Yes" value={counts.yes} tone="positive" />
-              <SummaryPill
-                label="Partial"
-                value={counts.partial}
-                tone="warning"
-              />
-              <SummaryPill label="No" value={counts.no} tone="negative" />
-              <SummaryPill label="N/A" value={counts.na} tone="neutral" />
-              <SummaryPill
-                label="Skipped"
-                value={counts.unanswered}
-                tone={counts.unanswered > 0 ? "warning" : "neutral"}
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {total - counts.unanswered} of {total} questions answered
-            </p>
-          </CardContent>
-        </Card>
-      ))}
+    <div className="space-y-16">
+      {/* ─── Section summaries — editorial scorecard ───────────────── */}
+      <div className="space-y-0">
+        {sectionSummaries.map(({ section, total, counts }, idx) => {
+          const romans = ["I", "II", "III"];
+          return (
+            <div
+              key={section}
+              className={cn(
+                "grid gap-6 border-t border-ink/30 py-10 md:grid-cols-12 md:gap-10 md:py-12",
+                idx === 0 && "border-t",
+              )}
+            >
+              <div className="md:col-span-4">
+                <p className="font-display text-[13px] italic text-forest">
+                  Section {romans[idx]}
+                </p>
+                <h3 className="mt-2 font-display text-[28px] font-light leading-[1.05] tracking-[-0.015em] text-ink md:text-[36px]">
+                  {sectionMeta[section].label}
+                </h3>
+                <p className="mt-4 font-mono tabular-figures text-[12px] text-warm-muted">
+                  {String(total - counts.unanswered).padStart(2, "0")}{" "}
+                  <span className="text-warm-muted-soft">
+                    / {String(total).padStart(2, "0")} answered
+                  </span>
+                </p>
+              </div>
 
+              <div className="md:col-span-8">
+                <div className="grid grid-cols-5 gap-0 border-t border-ink/30">
+                  <TypographicCount
+                    label="Yes"
+                    value={counts.yes}
+                    accent="positive"
+                  />
+                  <TypographicCount
+                    label="Partial"
+                    value={counts.partial}
+                    accent="neutral"
+                  />
+                  <TypographicCount
+                    label="No"
+                    value={counts.no}
+                    accent="negative"
+                  />
+                  <TypographicCount
+                    label="N/A"
+                    value={counts.na}
+                    accent="muted"
+                  />
+                  <TypographicCount
+                    label="Skipped"
+                    value={counts.unanswered}
+                    accent={counts.unanswered > 0 ? "neutral" : "muted"}
+                  />
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ─── Unanswered critical errata ─────────────────────────────── */}
       {unansweredCritical.length > 0 && (
-        <Card className="border-destructive/40">
-          <CardHeader>
-            <CardTitle className="text-base text-destructive">
-              {unansweredCritical.length} critical question
-              {unansweredCritical.length === 1 ? "" : "s"} unanswered
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="mb-3 text-xs text-muted-foreground">
-              Critical (weight 3) questions must be answered before you can
-              submit.
-            </p>
-            <ul className="space-y-2">
+        <div className="border-t border-risk-red/50 bg-risk-red-soft px-8 py-10 md:px-12">
+          <div className="grid gap-6 md:grid-cols-12 md:gap-10">
+            <div className="md:col-span-4">
+              <p className="eyebrow mb-3 text-risk-red">Errata</p>
+              <h3 className="font-display text-[28px] font-light leading-[1] tracking-[-0.015em] text-risk-red md:text-[32px]">
+                <span className="italic">
+                  {unansweredCritical.length}
+                </span>{" "}
+                critical{" "}
+                {unansweredCritical.length === 1
+                  ? "question"
+                  : "questions"}{" "}
+                unanswered.
+              </h3>
+              <p className="mt-4 text-[14px] leading-[1.6] text-risk-red/80">
+                These questions must be answered before the assessment
+                can be submitted.
+              </p>
+            </div>
+            <ul className="space-y-3 md:col-span-8">
               {unansweredCritical.map((q) => (
                 <li
                   key={q.id}
-                  className="flex items-start justify-between gap-3 text-sm"
+                  className="flex items-baseline justify-between gap-4 border-b border-risk-red/20 pb-3"
                 >
-                  <span className="flex-1">
-                    <span className="font-mono text-xs text-muted-foreground">
+                  <span className="flex-1 text-[15px] leading-snug text-ink">
+                    <span className="mr-2 font-mono text-[11px] text-risk-red/70">
                       {q.id}
-                    </span>{" "}
+                    </span>
                     {q.question}
                   </span>
                   <button
                     type="button"
                     onClick={() => onJumpToQuestion(q.id)}
-                    className="shrink-0 text-xs text-primary underline-offset-4 hover:underline"
+                    className="link-editorial shrink-0 font-display text-[13px] italic text-risk-red"
                   >
-                    Go to question →
+                    Jump to question →
                   </button>
                 </li>
               ))}
             </ul>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
-      <Button
-        onClick={handleSubmit}
-        disabled={!canSubmit || submitting}
-        size="lg"
-        className="w-full"
-      >
-        {submitting ? "Submitting…" : "Submit Assessment"}
-      </Button>
+      {/* ─── Submit ─────────────────────────────────────────────────── */}
+      <div className="border-t border-ink pt-10 text-center">
+        <p className="eyebrow mb-6">Colophon</p>
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={!canSubmit || submitting}
+          className={cn(
+            "group inline-flex items-baseline gap-3 font-display text-[36px] font-light italic md:text-[56px]",
+            canSubmit && !submitting
+              ? "text-forest hover:text-forest-deep"
+              : "cursor-not-allowed text-warm-muted-soft",
+          )}
+        >
+          <span className="link-editorial">
+            {submitting ? "Submitting…" : "Submit assessment"}
+          </span>
+          <span className="transition-transform duration-300 group-hover:translate-x-2">
+            →
+          </span>
+        </button>
+        <p className="mt-6 text-[13px] text-warm-muted">
+          After submitting, you&apos;ll be asked where to send the PDF
+          report.
+        </p>
+      </div>
     </div>
   );
 }
 
-function SummaryPill({
+function TypographicCount({
   label,
   value,
-  tone,
+  accent,
 }: {
   label: string;
   value: number;
-  tone: Tone;
+  accent: "positive" | "negative" | "neutral" | "muted";
 }) {
-  const toneClasses: Record<Tone, string> = {
-    positive: "bg-emerald-50 text-emerald-900 border-emerald-200",
-    negative: "bg-red-50 text-red-900 border-red-200",
-    warning: "bg-amber-50 text-amber-900 border-amber-200",
-    neutral: "bg-muted text-muted-foreground border-border",
-  };
+  const tone =
+    accent === "positive"
+      ? "text-forest"
+      : accent === "negative"
+        ? "text-risk-red"
+        : accent === "neutral"
+          ? "text-ink"
+          : "text-warm-muted-soft";
   return (
-    <div
-      className={cn(
-        "rounded-md border px-2 py-1.5 text-center",
-        toneClasses[tone],
-      )}
-    >
-      <div className="text-base font-semibold">{value}</div>
-      <div className="text-[10px] uppercase tracking-wide">{label}</div>
+    <div className="border-r border-ink/20 py-6 pl-4 pr-4 text-center last:border-r-0 md:pl-6">
+      <p
+        className={cn(
+          "font-display text-[40px] font-light leading-none tabular-figures md:text-[56px]",
+          tone,
+        )}
+      >
+        {value}
+      </p>
+      <p className="mt-2 font-display text-[11px] italic text-warm-muted">
+        {label}
+      </p>
     </div>
   );
 }

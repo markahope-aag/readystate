@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { ContactForm } from "./_components/contact-form";
@@ -14,9 +15,7 @@ export default async function ThankYouPage({ params }: PageProps) {
 
   const { data: assessment } = await supabase
     .from("assessments")
-    .select(
-      "id, site_name, status, email_sent_at, organizations(name)",
-    )
+    .select("id, site_name, status, email_sent_at, organizations(name)")
     .eq("id", id)
     .maybeSingle();
 
@@ -29,35 +28,106 @@ export default async function ThankYouPage({ params }: PageProps) {
   const alreadySent = Boolean(assessment.email_sent_at);
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <div className="mx-auto max-w-2xl px-6 py-16 md:py-24">
-        <div className="space-y-3 text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-            Assessment complete
-          </p>
-          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">
-            Thank you for completing the assessment.
+    <div className="min-h-screen bg-paper">
+      {/* Editorial header */}
+      <header className="border-b border-ink">
+        <div className="mx-auto flex max-w-[1400px] items-baseline justify-between px-6 py-5 md:px-12">
+          <Link href="/" className="group flex items-baseline gap-3">
+            <span className="font-display text-[20px] font-medium leading-none tracking-[-0.01em] text-ink">
+              Kestralis
+            </span>
+            <span className="hidden h-3 w-px bg-warm-muted sm:block" />
+            <span className="eyebrow hidden sm:inline">ReadyState</span>
+          </Link>
+          <span className="eyebrow">The colophon</span>
+        </div>
+      </header>
+
+      <main className="relative">
+        {/* ─── Hero — reverent, centered ──────────────────────────── */}
+        <section className="mx-auto max-w-[1100px] px-6 pt-24 pb-16 text-center md:px-10 md:pt-32 md:pb-20">
+          <p className="eyebrow mb-8">Assessment · complete</p>
+
+          <h1 className="mx-auto max-w-4xl font-display text-[56px] font-light leading-[0.95] tracking-[-0.025em] text-ink md:text-[104px]">
+            Thank you
+            <span className="text-warm-muted">,</span>
+            <br />
+            <span className="italic text-forest">sincerely</span>
+            <span className="text-warm-muted">.</span>
           </h1>
-          <p className="mx-auto max-w-xl text-base text-muted-foreground">
-            {orgName
-              ? `Your ReadyState report for ${orgName} is ready. We'll email the PDF to you in the next few minutes.`
-              : "Your ReadyState report is ready. We'll email the PDF to you in the next few minutes."}
-          </p>
-        </div>
 
-        <div className="mt-12">
-          <ContactForm
-            assessmentId={id}
-            alreadySent={alreadySent}
-            orgName={orgName}
-          />
-        </div>
+          {orgName && (
+            <p className="mx-auto mt-10 max-w-xl font-display text-[18px] font-light italic leading-relaxed text-warm-muted md:text-[20px]">
+              Your ReadyState report for{" "}
+              <span className="not-italic text-ink">{orgName}</span> is
+              ready. We&rsquo;ll email the PDF to you in the next few
+              minutes.
+            </p>
+          )}
+          {!orgName && (
+            <p className="mx-auto mt-10 max-w-xl font-display text-[18px] font-light italic leading-relaxed text-warm-muted md:text-[20px]">
+              Your ReadyState report is ready. We&rsquo;ll email the PDF
+              to you in the next few minutes.
+            </p>
+          )}
+        </section>
 
-        <p className="mt-10 text-center text-xs text-muted-foreground">
-          ReadyState is a product of Kestralis Group, LLC. · Powered by
-          Asymmetric Marketing
-        </p>
-      </div>
-    </main>
+        {/* ─── Form section ───────────────────────────────────────── */}
+        <section className="border-y border-ink bg-paper-deep">
+          <div className="mx-auto max-w-[1100px] px-6 py-20 md:px-10 md:py-28">
+            <div className="grid gap-12 md:grid-cols-12 md:gap-16">
+              <div className="md:col-span-5">
+                <p className="eyebrow mb-4">Delivery</p>
+                <h2 className="font-display text-[40px] font-light leading-[1] tracking-[-0.02em] text-ink md:text-[56px]">
+                  Where shall we{" "}
+                  <span className="italic text-forest">send it</span>
+                  <span className="text-warm-muted">?</span>
+                </h2>
+                <p className="mt-6 max-w-sm text-[14px] leading-[1.65] text-warm-muted md:text-[15px]">
+                  One delivery only. No marketing list, no follow-up
+                  sequence — just the report, as promised. You can
+                  always come back and run another assessment.
+                </p>
+              </div>
+
+              <div className="md:col-span-7">
+                <ContactForm
+                  assessmentId={id}
+                  alreadySent={alreadySent}
+                  orgName={orgName}
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ─── Footer ─────────────────────────────────────────────── */}
+        <footer className="border-t border-sand bg-paper">
+          <div className="mx-auto max-w-[1400px] px-6 py-10 md:px-12">
+            <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-baseline">
+              <div>
+                <p className="font-display text-[18px] font-medium italic text-ink">
+                  ReadyState
+                </p>
+                <p className="mt-1 text-xs text-warm-muted">
+                  A product of Kestralis Group, LLC ·{" "}
+                  <span className="italic">California, 2026</span>
+                </p>
+              </div>
+              <div className="flex flex-col items-start gap-1 text-xs text-warm-muted md:items-end">
+                <p>
+                  Structured self-assessment against Cal. Labor Code
+                  §6401.9 and ASIS WVPI AA-2020.
+                </p>
+                <p>
+                  Not legal advice. Powered by{" "}
+                  <span className="italic">Asymmetric Marketing</span>.
+                </p>
+              </div>
+            </div>
+          </div>
+        </footer>
+      </main>
+    </div>
   );
 }
