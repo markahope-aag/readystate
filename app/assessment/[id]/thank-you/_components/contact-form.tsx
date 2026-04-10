@@ -61,7 +61,7 @@ export function ContactForm({ assessmentId, alreadySent, orgName }: Props) {
   if (sent) {
     return (
       <Card className="border-emerald-200 bg-emerald-50/40">
-        <CardContent className="space-y-3 p-8 text-center">
+        <CardContent className="space-y-4 p-8 text-center">
           <p className="text-xs font-semibold uppercase tracking-wider text-emerald-800">
             Report delivered
           </p>
@@ -71,12 +71,22 @@ export function ContactForm({ assessmentId, alreadySent, orgName }: Props) {
           <p className="text-sm text-emerald-900/80">
             We&apos;ve emailed your ReadyState SB 553 assessment report
             {orgName ? ` for ${orgName}` : ""}. It should land in your
-            inbox within a minute or two. Check your spam folder if you
-            don&apos;t see it.
+            inbox within a minute or two.{" "}
+            <strong>
+              If you don&apos;t see it, check your spam or promotions
+              folder first — new sender domains often get filtered on
+              first contact.
+            </strong>
           </p>
-          <p className="pt-2 text-xs text-emerald-900/60">
-            Didn&apos;t get it? Refresh this page and try submitting again.
-          </p>
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => setSent(false)}
+              className="text-xs font-medium text-emerald-900 underline underline-offset-4 hover:text-emerald-950"
+            >
+              Still didn&apos;t get it? Send to a different email address →
+            </button>
+          </div>
         </CardContent>
       </Card>
     );
