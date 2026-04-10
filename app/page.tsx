@@ -7,7 +7,7 @@ export default function Home() {
       {/* ═══ Masthead / Nav ══════════════════════════════════════════════ */}
       <header className="relative z-20 border-b border-ink">
         <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-6 px-6 py-5 md:px-12">
-          <BrandLogo variant="light" height={38} />
+          <BrandLogo variant="onLight" height={38} />
           <nav className="flex items-baseline gap-6 text-[13px]">
             <span className="eyebrow hidden md:inline">
               Vol. I · SB 553
@@ -246,7 +246,7 @@ export default function Home() {
       <footer className="border-t border-sand bg-paper">
         <div className="mx-auto max-w-[1400px] px-6 py-10 md:px-12">
           <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
-            <BrandLogo variant="light" height={32} asLink={false} />
+            <BrandLogo variant="onLight" height={32} asLink={false} />
             <div className="flex flex-col items-start gap-1 text-xs text-warm-muted md:items-end">
               <p>
                 A product of Kestralis Group, LLC ·{" "}

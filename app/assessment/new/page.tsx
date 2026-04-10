@@ -51,7 +51,7 @@ export default async function NewAssessmentPage({ searchParams }: PageProps) {
     <div className="min-h-screen bg-paper">
       <header className="border-b border-ink">
         <div className="mx-auto flex max-w-[1100px] items-center justify-between px-6 py-5 md:px-10">
-          <BrandLogo variant="light" height={36} />
+          <BrandLogo variant="onLight" height={36} />
           <span className="eyebrow">The assessment</span>
         </div>
       </header>

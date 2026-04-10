@@ -31,7 +31,7 @@ export default async function ThankYouPage({ params }: PageProps) {
     <div className="min-h-screen bg-paper">
       <header className="border-b border-ink">
         <div className="mx-auto flex max-w-[1400px] items-center justify-between px-6 py-5 md:px-12">
-          <BrandLogo variant="light" height={36} />
+          <BrandLogo variant="onLight" height={36} />
           <span className="eyebrow">The colophon</span>
         </div>
       </header>
@@ -97,7 +97,7 @@ export default async function ThankYouPage({ params }: PageProps) {
         <footer className="border-t border-sand bg-paper">
           <div className="mx-auto max-w-[1400px] px-6 py-10 md:px-12">
             <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
-              <BrandLogo variant="light" height={32} asLink={false} />
+              <BrandLogo variant="onLight" height={32} asLink={false} />
               <div className="flex flex-col items-start gap-1 text-xs text-warm-muted md:items-end">
                 <p>
                   A product of Kestralis Group, LLC ·{" "}
