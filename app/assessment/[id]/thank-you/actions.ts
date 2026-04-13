@@ -1,11 +1,9 @@
 "use server";
 
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import { getQuestionById } from "@/lib/assessment/questions";
+import { getCategoryById, type ResponseValue } from "@/lib/assessment/questions";
 import type { RiskLevel } from "@/lib/assessment/scoring";
-import {
-  sendReportEmail,
-} from "@/lib/email/send-report";
+import { sendReportEmail } from "@/lib/email/send-report";
 import type { ReportGap } from "@/lib/pdf/AssessmentReport";
 
 type ActionResult<T> =
@@ -79,9 +77,7 @@ export async function submitContactAndSendReport(
   // 3. Fetch scores
   const { data: scoresRow } = await supabase
     .from("assessment_scores")
-    .select(
-      "sb553_score, asis_score, hazard_score, overall_score, risk_level",
-    )
+    .select("overall_score, risk_level")
     .eq("assessment_id", input.assessmentId)
     .maybeSingle();
 
@@ -92,33 +88,31 @@ export async function submitContactAndSendReport(
     };
   }
 
-  // 4. Fetch responses and build gap list
+  // 4. Fetch responses and build gap list (v2 — category-level)
   const { data: responses } = await supabase
     .from("assessment_responses")
-    .select("question_id, response, notes")
+    .select("question_id, response")
     .eq("assessment_id", input.assessmentId);
 
   const gaps: ReportGap[] = [];
   for (const r of (responses ?? []) as Array<{
     question_id: string;
     response: string;
-    notes: string | null;
   }>) {
-    if (r.response !== "no" && r.response !== "partial") continue;
-    const question = getQuestionById(r.question_id);
-    if (!question) continue;
-    gaps.push({
-      question,
-      response: r.response,
-      notes: r.notes,
-    });
+    if (r.response === "effective" || r.response === "na") continue;
+    const category = getCategoryById(r.question_id);
+    if (!category) continue;
+    gaps.push({ category, response: r.response as ResponseValue });
   }
   gaps.sort((a, b) => {
-    if (b.question.weight !== a.question.weight) {
-      return b.question.weight - a.question.weight;
-    }
-    if (a.response !== b.response) return a.response === "no" ? -1 : 1;
-    return a.question.id.localeCompare(b.question.id);
+    if (b.category.weight !== a.category.weight)
+      return b.category.weight - a.category.weight;
+    const sev: Record<string, number> = {
+      not_compliant: 3,
+      partial: 2,
+      implemented: 1,
+    };
+    return (sev[b.response] ?? 0) - (sev[a.response] ?? 0);
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -141,9 +135,6 @@ export async function submitContactAndSendReport(
     },
     organization,
     scores: {
-      sb553Score: scoresRow.sb553_score ?? 0,
-      asisScore: scoresRow.asis_score ?? 0,
-      hazardScore: scoresRow.hazard_score ?? 0,
       overallScore: scoresRow.overall_score ?? 0,
       riskLevel: (scoresRow.risk_level ?? "critical") as RiskLevel,
     },

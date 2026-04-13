@@ -16,7 +16,8 @@ type ActionResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: string };
 
-export type ResponseValue = "yes" | "no" | "partial" | "na";
+// ResponseValue is imported from questions.ts by consuming components directly.
+// "use server" files can only export async functions, not types.
 
 export interface OrgInfoInput {
   orgName: string;
@@ -100,13 +101,14 @@ export async function createOrgAndAssessment(
 }
 
 /**
- * Steps 1–3 — idempotent upsert of a single question response. Relies on
- * the unique constraint (assessment_id, question_id) from migration 003.
+ * Idempotent upsert of a single category response. In v2 each
+ * "question_id" is a category ID (e.g., "sb553_plan") and the response
+ * is a compliance level (effective / implemented / partial / not_compliant / na).
  */
 export async function saveResponse(input: {
   assessmentId: string;
   questionId: string;
-  response: ResponseValue;
+  response: string; // ResponseValue — typed loosely here since "use server" can't export types
   notes?: string | null;
 }): Promise<ActionResult<null>> {
   const supabase = createServiceRoleClient();

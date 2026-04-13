@@ -1,59 +1,57 @@
 /**
- * ReadyState — Assessment scoring engine
+ * ReadyState — SB 553 Assessment Scoring Engine (v2)
  *
- * Two layers:
- *   1. `computeScores(responses, questionBank)` — pure function. Does all
- *      the math. Safe to unit test without hitting Supabase. Safe to use
- *      client-side for a live preview in the wizard if we want one later.
+ * Simplified from the v1 three-section model (SB 553 / ASIS / Hazard with
+ * 50/30/20 weighting) to a single SB 553 compliance score across 10
+ * statutory categories.
  *
- *   2. `calculateScores(assessmentId)` — orchestrator. Fetches responses,
- *      delegates to `computeScores`, upserts `assessment_scores`, flips
- *      `assessments.status` to `complete`, returns the score object.
- *      Runs in the current Clerk user's auth context — RLS ensures users
- *      can only score their own assessments.
+ * Scoring rules:
+ *   Per category: max = weight * 4 (full marks for "effective")
+ *     effective     = weight * 4
+ *     implemented   = weight * 3
+ *     partial       = weight * 2
+ *     not_compliant = 0
+ *     na            = excluded from both earned and max
+ *   Overall score = round(earned / max * 100), 0–100 integer
+ *   Risk level: 0–39 critical, 40–59 high, 60–79 moderate, 80–100 low
  *
- * Scoring rules (per spec):
- *   - Per question: max = weight * 2, earned = yes:weight*2 | partial:weight*1 | no:0
- *   - N/A questions are excluded from both earned and max
- *   - Skipped questions (no row) are treated the same as N/A
- *   - Section score = round(earned / max * 100), 0–100 integer
- *   - Special case: if section max is 0 (all N/A'd), section score = 100
- *   - Overall = round(0.5 * sb553 + 0.3 * asis + 0.2 * hazard)
- *   - Risk level: 0–49 critical, 50–69 high, 70–84 moderate, 85–100 low
+ * The bands are tighter than v1 because the v2 selector gives more
+ * resolution (5 levels vs 4), so "partial" across the board lands at 50
+ * which is correctly "high risk" rather than appearing moderate.
  */
 
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import {
-  questions as defaultQuestionBank,
-  type Question,
-  type QuestionSection,
+  categories as defaultCategories,
+  type Category,
+  type ResponseValue,
 } from "./questions";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type ResponseValue = "yes" | "no" | "partial" | "na";
-
 export type RiskLevel = "critical" | "high" | "moderate" | "low";
 
-export interface SectionScore {
-  section: QuestionSection;
-  /** 0–100 integer */
-  score: number;
-  earned: number;
-  max: number;
-  /** Count of non-N/A, non-skipped responses */
-  answered: number;
-  naCount: number;
-  skippedCount: number;
-}
-
 export interface ScoreResult {
-  sb553Score: number;
-  asisScore: number;
-  hazardScore: number;
   overallScore: number;
   riskLevel: RiskLevel;
-  sections: SectionScore[];
+  earned: number;
+  max: number;
+  answeredCount: number;
+  naCount: number;
+  skippedCount: number;
+  /** Per-category breakdown */
+  categoryScores: CategoryScore[];
+}
+
+export interface CategoryScore {
+  categoryId: string;
+  title: string;
+  weight: 1 | 2 | 3;
+  response: ResponseValue | null;
+  earned: number;
+  max: number;
+  /** 0–100 for this category alone, or null if N/A/skipped */
+  score: number | null;
 }
 
 export interface ResponseRow {
@@ -63,21 +61,13 @@ export interface ResponseRow {
 
 // ─── Risk level helpers ──────────────────────────────────────────────────────
 
-/**
- * Map a 0–100 overall score to a risk band.
- * Boundaries: ≥85 low, ≥70 moderate, ≥50 high, else critical.
- */
 export function getRiskLevel(score: number): RiskLevel {
-  if (score >= 85) return "low";
-  if (score >= 70) return "moderate";
-  if (score >= 50) return "high";
+  if (score >= 80) return "low";
+  if (score >= 60) return "moderate";
+  if (score >= 40) return "high";
   return "critical";
 }
 
-/**
- * Tailwind classes for each risk level. Split by slot so callers can
- * compose (e.g., bg + text together, or just border for an outline).
- */
 export function getRiskColor(level: RiskLevel): {
   bg: string;
   text: string;
@@ -121,10 +111,6 @@ export function getRiskColor(level: RiskLevel): {
   }
 }
 
-/**
- * Human-readable label and short rationale for a risk band.
- * Used by the report UI and PDF export.
- */
 export function getRiskLabel(level: RiskLevel): {
   label: string;
   description: string;
@@ -134,93 +120,66 @@ export function getRiskLabel(level: RiskLevel): {
       return {
         label: "Low risk",
         description:
-          "The program is substantially aligned with SB 553 statutory requirements and professional best practices. Minor gaps may remain but do not represent immediate compliance or liability exposure.",
+          "The prevention program is substantially compliant with SB 553. Requirements are implemented and demonstrably effective. Minor gaps may remain but do not represent immediate citation risk.",
       };
     case "moderate":
       return {
         label: "Moderate risk",
         description:
-          "The program meets most statutory minimums but has meaningful gaps in professional standards or site hazard controls. Remediation should be prioritized within the next 90 days.",
+          "The program meets most statutory requirements but has meaningful gaps in implementation or effectiveness verification. Remediation should be prioritized within the next 90 days to avoid exposure.",
       };
     case "high":
       return {
         label: "High risk",
         description:
-          "Significant compliance gaps exist. The program has serious deficiencies relative to SB 553 requirements or the site's hazard profile. Immediate remediation planning is required.",
+          "Significant compliance gaps exist. The program has serious deficiencies relative to SB 553 requirements. Immediate remediation planning is required — the organization is exposed to Cal/OSHA citation.",
       };
     case "critical":
       return {
         label: "Critical risk",
         description:
-          "The program fails to meet core SB 553 statutory requirements or has severe site hazard exposure. Urgent action required — the organization is at direct risk of Cal/OSHA citation and employee harm.",
+          "The program fails to meet core SB 553 statutory requirements. Multiple critical areas are non-compliant or missing entirely. Urgent action required — the organization faces direct citation risk and potential liability exposure.",
       };
   }
 }
 
 // ─── Pure scoring ─────────────────────────────────────────────────────────────
 
-function isResponseValue(value: string): value is ResponseValue {
+function isResponseValue(v: string): v is ResponseValue {
   return (
-    value === "yes" || value === "no" || value === "partial" || value === "na"
+    v === "effective" ||
+    v === "implemented" ||
+    v === "partial" ||
+    v === "not_compliant" ||
+    v === "na"
   );
 }
 
-function computeSectionScore(
-  section: QuestionSection,
-  sectionQuestions: Question[],
-  responseMap: Map<string, ResponseValue>,
-): SectionScore {
-  let earned = 0;
-  let max = 0;
-  let answered = 0;
-  let naCount = 0;
-  let skippedCount = 0;
-
-  for (const q of sectionQuestions) {
-    const response = responseMap.get(q.id);
-
-    // No row in assessment_responses → treated as N/A (no credit, no penalty)
-    if (!response) {
-      skippedCount++;
-      continue;
-    }
-
-    if (response === "na") {
-      naCount++;
-      continue;
-    }
-
-    answered++;
-    max += q.weight * 2;
-
-    if (response === "yes") {
-      earned += q.weight * 2;
-    } else if (response === "partial") {
-      earned += q.weight * 1;
-    }
-    // 'no' contributes 0 earned (but still adds to max)
+function earnedForResponse(
+  response: ResponseValue,
+  weight: number,
+): number {
+  switch (response) {
+    case "effective":
+      return weight * 4;
+    case "implemented":
+      return weight * 3;
+    case "partial":
+      return weight * 2;
+    case "not_compliant":
+      return 0;
+    case "na":
+      return 0; // excluded from max too
   }
-
-  // All-N/A case: no questions contributed to max. Default to 100 (nothing
-  // was answered 'no', so there's nothing to fail). Callers that want a
-  // different default can inspect `answered === 0` on the returned object.
-  const score = max === 0 ? 100 : Math.round((earned / max) * 100);
-
-  return { section, score, earned, max, answered, naCount, skippedCount };
 }
 
 /**
- * Pure scoring function. Given a set of response rows and a question bank,
- * returns section scores, an overall weighted score, and a risk level.
- *
- * No side effects — no Supabase, no fetch, no state mutation.
- *
- * @param responses - rows from assessment_responses (only id + response used)
- * @param questionBank - defaults to the real question bank; tests pass stubs
+ * Pure scoring function. Given response rows and category bank, returns
+ * overall score + per-category breakdown. No side effects.
  */
 export function computeScores(
   responses: ResponseRow[],
-  questionBank: Question[] = defaultQuestionBank,
+  categoryBank: Category[] = defaultCategories,
 ): ScoreResult {
   const responseMap = new Map<string, ResponseValue>();
   for (const r of responses) {
@@ -229,54 +188,86 @@ export function computeScores(
     }
   }
 
-  const activeQuestions = questionBank.filter((q) => !q.deprecated);
+  const activeCategories = categoryBank.filter((c) => !c.deprecated);
 
-  const sb553 = computeSectionScore(
-    "sb553",
-    activeQuestions.filter((q) => q.section === "sb553"),
-    responseMap,
-  );
-  const asis = computeSectionScore(
-    "asis",
-    activeQuestions.filter((q) => q.section === "asis"),
-    responseMap,
-  );
-  const hazard = computeSectionScore(
-    "hazard",
-    activeQuestions.filter((q) => q.section === "hazard"),
-    responseMap,
-  );
+  let totalEarned = 0;
+  let totalMax = 0;
+  let answeredCount = 0;
+  let naCount = 0;
+  let skippedCount = 0;
 
-  const overallScore = Math.round(
-    sb553.score * 0.5 + asis.score * 0.3 + hazard.score * 0.2,
-  );
+  const categoryScores: CategoryScore[] = activeCategories.map((cat) => {
+    const response = responseMap.get(cat.id) ?? null;
+    const catMax = cat.weight * 4;
+
+    if (!response) {
+      skippedCount++;
+      return {
+        categoryId: cat.id,
+        title: cat.title,
+        weight: cat.weight,
+        response: null,
+        earned: 0,
+        max: catMax,
+        score: null,
+      };
+    }
+
+    if (response === "na") {
+      naCount++;
+      return {
+        categoryId: cat.id,
+        title: cat.title,
+        weight: cat.weight,
+        response,
+        earned: 0,
+        max: 0,
+        score: null,
+      };
+    }
+
+    answeredCount++;
+    const earned = earnedForResponse(response, cat.weight);
+    totalEarned += earned;
+    totalMax += catMax;
+
+    return {
+      categoryId: cat.id,
+      title: cat.title,
+      weight: cat.weight,
+      response,
+      earned,
+      max: catMax,
+      score: Math.round((earned / catMax) * 100),
+    };
+  });
+
+  const overallScore =
+    totalMax === 0 ? 100 : Math.round((totalEarned / totalMax) * 100);
 
   return {
-    sb553Score: sb553.score,
-    asisScore: asis.score,
-    hazardScore: hazard.score,
     overallScore,
     riskLevel: getRiskLevel(overallScore),
-    sections: [sb553, asis, hazard],
+    earned: totalEarned,
+    max: totalMax,
+    answeredCount,
+    naCount,
+    skippedCount,
+    categoryScores,
   };
 }
 
-// ─── Orchestrator (side-effecting) ───────────────────────────────────────────
+// ─── Orchestrator ─────────────────────────────────────────────────────────────
 
 /**
- * End-to-end scoring: fetch responses → compute → persist scores → flip
- * assessment status to complete. Uses the Supabase service role since
- * ReadyState runs anonymously — no per-user auth context to inherit.
- *
- * Throws on any Supabase error. Caller (e.g. the wizard's finalize action)
- * should catch and surface a user-friendly error.
+ * End-to-end scoring: fetch responses → compute → persist scores →
+ * flip assessment status to complete.
  */
 export async function calculateScores(
   assessmentId: string,
 ): Promise<ScoreResult> {
   const supabase = createServiceRoleClient();
 
-  // 1. Fetch all responses for this assessment
   const { data: responses, error: fetchError } = await supabase
     .from("assessment_responses")
     .select("question_id, response")
@@ -286,18 +277,17 @@ export async function calculateScores(
     throw new Error(`Failed to load responses: ${fetchError.message}`);
   }
 
-  // 2. Compute (pure)
   const result = computeScores((responses as ResponseRow[] | null) ?? []);
 
-  // 3. Upsert scores (unique on assessment_id)
+  // Upsert scores — reuse existing columns, map new model
   const { error: upsertError } = await supabase
     .from("assessment_scores")
     .upsert(
       {
         assessment_id: assessmentId,
-        sb553_score: result.sb553Score,
-        asis_score: result.asisScore,
-        hazard_score: result.hazardScore,
+        sb553_score: result.overallScore, // single-section now
+        asis_score: null, // retired
+        hazard_score: null, // retired
         overall_score: result.overallScore,
         risk_level: result.riskLevel,
       },
@@ -308,7 +298,6 @@ export async function calculateScores(
     throw new Error(`Failed to save scores: ${upsertError.message}`);
   }
 
-  // 4. Flip assessment status to complete
   const { error: updateError } = await supabase
     .from("assessments")
     .update({
@@ -318,7 +307,9 @@ export async function calculateScores(
     .eq("id", assessmentId);
 
   if (updateError) {
-    throw new Error(`Failed to update assessment status: ${updateError.message}`);
+    throw new Error(
+      `Failed to update assessment status: ${updateError.message}`,
+    );
   }
 
   return result;

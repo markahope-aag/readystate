@@ -1,22 +1,8 @@
 /**
- * Kestralis — ReadyState Assessment Report PDF
+ * Kestralis — ReadyState Assessment Report PDF (v2)
  *
- * Server-rendered editorial report via @react-pdf/renderer. Matches the
- * live web surfaces: warm cream paper, deep forest accent, Fraunces
- * display serif paired with Geist Sans body, rule-line layouts,
- * oversized typographic scores.
- *
- * Four pages:
- *   1. Cover        — masthead, org name as masthead title, risk label
- *   2. Scorecard    — editorial score entries + massive overall numeral
- *   3. Gap analysis — rule-lined editorial table
- *   4. Remediation  — numbered cards with forest left rule
- *
- * Fixed footer on every page: Kestralis colophon + folio pagination.
- *
- * Fonts are registered at module load from jsDelivr CDN mirrors of the
- * official Google Fonts / Vercel font repos. Network is required at
- * first render; subsequent renders use react-pdf's in-memory cache.
+ * SB 553 category-based scoring model. Ten statutory categories, each
+ * evaluated as Effective / Implemented / Partial / Not Compliant / N/A.
  */
 
 /* eslint-disable react/no-unknown-property */
@@ -28,17 +14,13 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
-import type { Question } from "@/lib/assessment/questions";
-import {
-  getRiskLabel,
-  type RiskLevel,
-} from "@/lib/assessment/scoring";
+import type { Category, ResponseValue } from "@/lib/assessment/questions";
+import { RESPONSE_OPTIONS } from "@/lib/assessment/questions";
+import { getRiskLabel, type RiskLevel } from "@/lib/assessment/scoring";
 import { recommendations } from "@/lib/assessment/recommendations";
 
 // ─── Font registration ──────────────────────────────────────────────────────
 
-// Fraunces — display serif. Variable font but react-pdf needs static files,
-// so we pull specific weights. Italic is the star here.
 Font.register({
   family: "Fraunces",
   fonts: [
@@ -70,7 +52,6 @@ Font.register({
   ],
 });
 
-// Suppress Fraunces word-break warnings for long italic headlines
 Font.registerHyphenationCallback((word) => [word]);
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -92,17 +73,13 @@ export interface ReportAssessment {
 }
 
 export interface ReportScores {
-  sb553Score: number;
-  asisScore: number;
-  hazardScore: number;
   overallScore: number;
   riskLevel: RiskLevel;
 }
 
 export interface ReportGap {
-  question: Question;
-  response: "no" | "partial";
-  notes: string | null;
+  category: Category;
+  response: ResponseValue;
 }
 
 export interface AssessmentReportProps {
@@ -113,60 +90,52 @@ export interface AssessmentReportProps {
   generatedAt: Date;
 }
 
-// ─── Palette — hex literals mirroring the web tokens ─────────────────────
+// ─── Palette ──────────────────────────────────────────────────────────────────
 
-const palette = {
+const p = {
   paper: "#f5f4ed",
-  paperDeep: "#eeece2",
   ink: "#0c0c0a",
-  inkSoft: "#1a1915",
-  // "forest" kept as the key name for parity with the web tokens, but
-  // these are the ReadyState brand navy values.
   forest: "#0D1B2E",
-  forestDeep: "#081221",
   forestSoft: "#2A3A55",
   sand: "#c9bd9c",
   sandSoft: "#e4dcc2",
-  sandDeep: "#a89a6e",
-  // Brand amber accent — used sparingly.
-  amber: "#F5A623",
-  amberSoft: "#FFE0A8",
-  amberDeep: "#C88418",
   warmMuted: "#6b6758",
   warmMutedSoft: "#9a9688",
   riskRed: "#a02020",
-  riskRedSoft: "#f4e7e7",
+  amber: "#F5A623",
 };
+
+function toneForResponse(r: ResponseValue): string {
+  switch (r) {
+    case "effective":
+      return "#059669";
+    case "implemented":
+      return p.forestSoft;
+    case "partial":
+      return "#D97706";
+    case "not_compliant":
+      return p.riskRed;
+    case "na":
+      return p.warmMuted;
+  }
+}
 
 function toneForRisk(level: RiskLevel): string {
   switch (level) {
     case "low":
-      return palette.forest;
+      return "#059669";
     case "moderate":
-      return palette.forestSoft;
+      return p.forestSoft;
     case "high":
-      return palette.sandDeep;
+      return "#D97706";
     case "critical":
-      return palette.riskRed;
+      return p.riskRed;
   }
 }
 
-function scoreToRiskLevel(score: number): RiskLevel {
-  if (score >= 85) return "low";
-  if (score >= 70) return "moderate";
-  if (score >= 50) return "high";
-  return "critical";
-}
-
-const SECTION_ROMANS: Record<"sb553" | "asis" | "hazard", string> = {
-  sb553: "I",
-  asis: "II",
-  hazard: "III",
-};
-
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   page: {
     paddingTop: 56,
     paddingBottom: 72,
@@ -174,11 +143,9 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: "Fraunces",
     fontWeight: 400,
-    color: palette.ink,
-    backgroundColor: palette.paper,
+    color: p.ink,
+    backgroundColor: p.paper,
   },
-
-  // ─── Running chrome ─────────────────────────────────────────────────
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -186,20 +153,12 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     marginBottom: 32,
     borderBottomWidth: 1,
-    borderBottomColor: palette.ink,
+    borderBottomColor: p.ink,
   },
-  headerMark: {
-    fontFamily: "Fraunces",
-    fontWeight: 500,
-    fontSize: 14,
-    color: palette.ink,
-    letterSpacing: 0.2,
-  },
+  headerMark: { fontWeight: 500, fontSize: 14, color: p.ink },
   headerLabel: {
-    fontFamily: "Fraunces",
-    fontWeight: 400,
     fontSize: 8,
-    color: palette.warmMuted,
+    color: p.warmMuted,
     textTransform: "uppercase",
     letterSpacing: 1.6,
   },
@@ -210,393 +169,50 @@ const styles = StyleSheet.create({
     right: 56,
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
     borderTopWidth: 0.5,
-    borderTopColor: palette.sand,
+    borderTopColor: p.sand,
     paddingTop: 10,
   },
-  footerText: {
-    fontFamily: "Fraunces",
-    fontSize: 7,
-    color: palette.warmMuted,
-    fontStyle: "italic",
-  },
-
-  // ─── Eyebrow (small caps letter-spaced label) ────────────────────────
+  footerText: { fontSize: 7, color: p.warmMuted, fontStyle: "italic" },
   eyebrow: {
-    fontFamily: "Fraunces",
     fontSize: 7.5,
     fontWeight: 500,
-    color: palette.warmMuted,
+    color: p.warmMuted,
     textTransform: "uppercase",
     letterSpacing: 1.6,
   },
-
-  // ─── Cover page ──────────────────────────────────────────────────────
-  coverWrap: {
-    flex: 1,
-    paddingTop: 40,
-    justifyContent: "space-between",
-  },
-  coverMeta: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 56,
-  },
-  coverTitle: {
-    fontFamily: "Fraunces",
-    fontWeight: 300,
-    fontSize: 72,
-    lineHeight: 0.98,
-    letterSpacing: -1.8,
-    color: palette.ink,
-  },
-  coverItalic: {
-    fontFamily: "Fraunces",
-    fontWeight: 300,
-    fontStyle: "italic",
-    color: palette.forest,
-  },
-  coverPunctuation: {
-    color: palette.warmMuted,
-  },
-  coverSiteLine: {
-    marginTop: 24,
-    fontFamily: "Fraunces",
-    fontWeight: 300,
-    fontStyle: "italic",
-    fontSize: 16,
-    color: palette.warmMuted,
-    lineHeight: 1.4,
-  },
-  coverRiskBlock: {
-    marginTop: 60,
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: palette.ink,
-  },
-  coverRiskLabel: {
-    fontFamily: "Fraunces",
-    fontWeight: 300,
-    fontStyle: "italic",
-    fontSize: 44,
-    lineHeight: 1,
-    letterSpacing: -0.6,
-  },
-  coverRiskDescription: {
-    marginTop: 14,
-    fontFamily: "Fraunces",
-    fontSize: 10,
-    lineHeight: 1.6,
-    color: palette.ink,
-    maxWidth: "75%",
-  },
-  coverColophon: {
-    marginTop: 48,
-    paddingTop: 16,
-    borderTopWidth: 0.5,
-    borderTopColor: palette.sand,
-  },
-  coverColophonRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 6,
-  },
-  coverColophonValue: {
-    fontFamily: "Fraunces",
-    fontSize: 10,
-    color: palette.ink,
-  },
-
-  // ─── Section heads ──────────────────────────────────────────────────
-  sectionIntro: {
-    flexDirection: "row",
-    marginBottom: 32,
-  },
-  sectionIntroLeft: {
-    flex: 4,
-    paddingRight: 24,
-  },
-  sectionIntroRight: {
-    flex: 6,
-  },
-  sectionH1: {
-    fontFamily: "Fraunces",
+  h1: {
     fontWeight: 300,
     fontSize: 40,
     lineHeight: 0.96,
     letterSpacing: -0.9,
-    color: palette.ink,
+    color: p.ink,
     marginTop: 4,
   },
-  sectionBody: {
-    fontFamily: "Fraunces",
-    fontSize: 11,
-    lineHeight: 1.7,
-    color: palette.ink,
-  },
-
-  // ─── Scorecard entries ──────────────────────────────────────────────
-  scoreEntry: {
-    flexDirection: "row",
-    borderBottomWidth: 0.5,
-    borderBottomColor: palette.ink,
-    paddingVertical: 24,
-  },
-  scoreEntryRoman: {
-    width: "8%",
-    fontFamily: "Fraunces",
-    fontWeight: 300,
-    fontStyle: "italic",
-    fontSize: 24,
-    color: palette.forest,
-    lineHeight: 1,
-  },
-  scoreEntryMeta: {
-    width: "44%",
-    paddingRight: 16,
-  },
-  scoreEntryLabel: {
-    fontFamily: "Fraunces",
-    fontWeight: 400,
-    fontSize: 22,
-    lineHeight: 1.05,
-    letterSpacing: -0.3,
-    color: palette.ink,
-    marginTop: 2,
-  },
-  scoreEntryWeight: {
-    marginTop: 6,
-    fontFamily: "Fraunces",
-    fontSize: 8,
-    color: palette.warmMuted,
-    letterSpacing: 0.5,
-  },
-  scoreEntryValueWrap: {
-    width: "48%",
-  },
-  scoreEntryValueLine: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "baseline",
-    borderBottomWidth: 0.5,
-    borderBottomColor: palette.sand,
-    paddingBottom: 4,
-  },
-  scoreEntryValue: {
-    fontFamily: "Fraunces",
-    fontWeight: 300,
-    fontSize: 48,
-    lineHeight: 0.9,
-    letterSpacing: -1.5,
-  },
-  scoreEntryPct: {
-    color: palette.warmMuted,
-  },
-  scoreEntryRisk: {
-    marginTop: 8,
-    fontFamily: "Fraunces",
-    fontStyle: "italic",
-    fontSize: 11,
-  },
-
-  // ─── Overall score ───────────────────────────────────────────────────
-  overallWrap: {
-    marginTop: 40,
-    paddingTop: 28,
-    borderTopWidth: 1.2,
-    borderTopColor: palette.ink,
-    flexDirection: "row",
-  },
-  overallNumberColumn: {
-    flex: 6,
-    paddingRight: 20,
-  },
-  overallEyebrow: {
-    marginBottom: 12,
-  },
-  overallNumber: {
-    fontFamily: "Fraunces",
-    fontWeight: 300,
-    fontSize: 160,
-    lineHeight: 0.82,
-    letterSpacing: -5,
-  },
-  overallRight: {
-    flex: 5,
-    paddingLeft: 12,
-    paddingTop: 16,
-  },
-  overallLabel: {
-    fontFamily: "Fraunces",
-    fontWeight: 300,
-    fontStyle: "italic",
-    fontSize: 32,
-    lineHeight: 0.95,
-    letterSpacing: -0.4,
-  },
-  overallDescription: {
-    marginTop: 14,
-    fontFamily: "Fraunces",
-    fontSize: 10,
-    lineHeight: 1.65,
-    color: palette.ink,
-  },
-
-  // ─── Table ───────────────────────────────────────────────────────────
-  tableHeader: {
-    flexDirection: "row",
-    borderTopWidth: 1,
-    borderBottomWidth: 0.5,
-    borderColor: palette.ink,
-    paddingVertical: 7,
-  },
-  th: {
-    fontFamily: "Fraunces",
-    fontStyle: "italic",
-    fontSize: 9,
-    color: palette.forest,
-  },
-  tableRow: {
-    flexDirection: "row",
-    borderBottomWidth: 0.5,
-    borderBottomColor: palette.ink,
-    paddingVertical: 10,
-  },
-  tdRoman: {
-    width: "6%",
-    fontFamily: "Courier",
-    fontSize: 7,
-    color: palette.warmMuted,
-    paddingTop: 3,
-  },
-  tdId: {
-    width: "10%",
-    fontFamily: "Courier",
-    fontSize: 7,
-    color: palette.warmMutedSoft,
-    paddingTop: 3,
-  },
-  tdFinding: {
-    width: "56%",
-    paddingRight: 12,
-  },
-  tdFindingText: {
-    fontFamily: "Fraunces",
-    fontWeight: 300,
-    fontSize: 11,
-    lineHeight: 1.35,
-    color: palette.ink,
-  },
-  tdFindingCategory: {
-    marginTop: 3,
-    fontFamily: "Fraunces",
-    fontStyle: "italic",
-    fontSize: 8,
-    color: palette.warmMutedSoft,
-  },
-  tdResponse: {
-    width: "14%",
-    paddingTop: 3,
-    fontFamily: "Fraunces",
-    fontStyle: "italic",
-    fontSize: 10,
-  },
-  tdPriority: {
-    width: "14%",
-    paddingTop: 3,
-    fontFamily: "Fraunces",
-    fontStyle: "italic",
-    fontSize: 10,
-    textAlign: "right",
-  },
-
-  // ─── Recommendation entries ──────────────────────────────────────────
-  recEntry: {
-    flexDirection: "row",
-    borderBottomWidth: 0.5,
-    borderBottomColor: palette.ink,
-    paddingVertical: 22,
-  },
-  recNumber: {
-    width: "8%",
-    fontFamily: "Fraunces",
-    fontWeight: 300,
-    fontStyle: "italic",
-    fontSize: 24,
-    color: palette.riskRed,
-    lineHeight: 1,
-  },
-  recTitleColumn: {
-    width: "42%",
-    paddingRight: 16,
-  },
-  recEyebrow: {
-    fontFamily: "Fraunces",
-    fontSize: 7.5,
-    fontWeight: 500,
-    color: palette.riskRed,
-    textTransform: "uppercase",
-    letterSpacing: 1.4,
-    marginBottom: 6,
-  },
-  recTitle: {
-    fontFamily: "Fraunces",
-    fontWeight: 400,
-    fontSize: 14,
-    lineHeight: 1.25,
-    color: palette.ink,
-  },
-  recBodyColumn: {
-    width: "50%",
-  },
-  recBodyLabel: {
-    fontFamily: "Fraunces",
-    fontSize: 7.5,
-    fontWeight: 500,
-    color: palette.warmMuted,
-    textTransform: "uppercase",
-    letterSpacing: 1.6,
-    marginBottom: 6,
-  },
-  recBody: {
-    fontFamily: "Fraunces",
-    fontSize: 10,
-    lineHeight: 1.65,
-    color: palette.ink,
-    borderLeftWidth: 1,
-    borderLeftColor: palette.forest,
-    paddingLeft: 10,
-  },
-  recEmpty: {
-    fontFamily: "Fraunces",
-    fontSize: 11,
-    fontStyle: "italic",
-    color: palette.forestSoft,
-    marginTop: 24,
-  },
+  body: { fontSize: 11, lineHeight: 1.7, color: p.ink },
+  sectionIntro: { flexDirection: "row", marginBottom: 32 },
+  sectionLeft: { flex: 4, paddingRight: 24 },
+  sectionRight: { flex: 6 },
 });
 
-// ─── Running chrome ──────────────────────────────────────────────────────────
+// ─── Chrome ──────────────────────────────────────────────────────────────────
 
-const RunningHeader = () => (
-  <View style={styles.header} fixed>
-    <Text style={styles.headerMark}>
-      Kestralis
-      <Text style={{ color: palette.warmMuted }}> · </Text>
-      ReadyState
+const Header = () => (
+  <View style={s.header} fixed>
+    <Text style={s.headerMark}>
+      Kestralis <Text style={{ color: p.warmMuted }}> · </Text> ReadyState
     </Text>
-    <Text style={styles.headerLabel}>Assessment report</Text>
+    <Text style={s.headerLabel}>SB 553 Assessment Report</Text>
   </View>
 );
 
-const RunningFooter = () => (
-  <View style={styles.footer} fixed>
-    <Text style={styles.footerText}>
+const Footer = () => (
+  <View style={s.footer} fixed>
+    <Text style={s.footerText}>
       A product of Kestralis Group, LLC · Powered by Asymmetric Marketing
     </Text>
     <Text
-      style={styles.footerText}
+      style={s.footerText}
       render={({ pageNumber, totalPages }) =>
         `Folio ${String(pageNumber).padStart(2, "0")} / ${String(totalPages).padStart(2, "0")}`
       }
@@ -619,351 +235,190 @@ function CoverPage({
 }) {
   const riskMeta = getRiskLabel(scores.riskLevel);
   const riskTone = toneForRisk(scores.riskLevel);
-  const orgName = organization?.name ?? "Unknown organization";
 
   return (
-    <Page size="LETTER" style={styles.page}>
-      <RunningHeader />
-
-      <View style={styles.coverWrap}>
+    <Page size="LETTER" style={s.page}>
+      <Header />
+      <View style={{ flex: 1, paddingTop: 40, justifyContent: "space-between" }}>
         <View>
-          <View style={styles.coverMeta}>
-            <Text style={styles.eyebrow}>Assessment report</Text>
-            <Text style={styles.eyebrow}>
-              Issued · {formatDate(generatedAt)}
-            </Text>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 56 }}>
+            <Text style={s.eyebrow}>Assessment report</Text>
+            <Text style={s.eyebrow}>Issued · {fmt(generatedAt)}</Text>
           </View>
 
-          <Text style={styles.coverTitle}>
-            {orgName}
-            <Text style={styles.coverPunctuation}>.</Text>
+          <Text style={{ fontWeight: 300, fontSize: 72, lineHeight: 0.98, letterSpacing: -1.8, color: p.ink }}>
+            {organization?.name ?? "Unknown organization"}
+            <Text style={{ color: p.warmMuted }}>.</Text>
           </Text>
 
           {(assessment.site_name || assessment.site_address) && (
-            <Text style={styles.coverSiteLine}>
-              {[assessment.site_name, assessment.site_address]
-                .filter(Boolean)
-                .join(" · ")}
+            <Text style={{ marginTop: 24, fontWeight: 300, fontStyle: "italic", fontSize: 16, color: p.warmMuted, lineHeight: 1.4 }}>
+              {[assessment.site_name, assessment.site_address].filter(Boolean).join(" · ")}
             </Text>
           )}
 
-          {/* Risk band */}
-          <View style={styles.coverRiskBlock}>
-            <Text style={styles.eyebrow}>Overall rating</Text>
-            <Text
-              style={[styles.coverRiskLabel, { color: riskTone, marginTop: 8 }]}
-            >
-              {riskMeta.label}
-              <Text style={styles.coverPunctuation}>.</Text>
+          <View style={{ marginTop: 60, paddingTop: 20, borderTopWidth: 1, borderTopColor: p.ink }}>
+            <Text style={s.eyebrow}>Overall rating</Text>
+            <Text style={{ marginTop: 8, fontWeight: 300, fontStyle: "italic", fontSize: 44, lineHeight: 1, color: riskTone }}>
+              {riskMeta.label}<Text style={{ color: p.warmMuted }}>.</Text>
             </Text>
-            <Text style={styles.coverRiskDescription}>
+            <Text style={{ marginTop: 14, fontSize: 10, lineHeight: 1.6, color: p.ink, maxWidth: "75%" }}>
               {riskMeta.description}
             </Text>
           </View>
         </View>
 
-        {/* Colophon */}
-        <View style={styles.coverColophon}>
-          <Text style={styles.eyebrow}>Colophon</Text>
-          <View style={styles.coverColophonRow}>
-            <Text style={styles.coverColophonValue}>
-              California Labor Code §6401.9
-            </Text>
-            <Text style={styles.coverColophonValue}>ASIS WVPI AA-2020</Text>
-          </View>
-          <View style={[styles.coverColophonRow, { marginTop: 2 }]}>
-            <Text
-              style={[
-                styles.coverColophonValue,
-                { fontStyle: "italic", color: palette.warmMuted, fontSize: 9 },
-              ]}
-            >
-              The three standards
-            </Text>
-            <Text
-              style={[
-                styles.coverColophonValue,
-                { fontStyle: "italic", color: palette.warmMuted, fontSize: 9 },
-              ]}
-            >
-              Site Hazard Profile
-            </Text>
-          </View>
+        <View style={{ paddingTop: 16, borderTopWidth: 0.5, borderTopColor: p.sand }}>
+          <Text style={s.eyebrow}>California SB 553 · Workplace Violence Prevention</Text>
         </View>
       </View>
-
-      <RunningFooter />
+      <Footer />
     </Page>
   );
 }
 
-function ScorecardPage({
-  scores,
-}: {
-  scores: ReportScores;
-}) {
-  const overallTone = toneForRisk(scores.riskLevel);
+function ScorecardPage({ scores }: { scores: ReportScores }) {
+  const riskTone = toneForRisk(scores.riskLevel);
   const riskMeta = getRiskLabel(scores.riskLevel);
-
   return (
-    <Page size="LETTER" style={styles.page}>
-      <RunningHeader />
-
-      <View style={styles.sectionIntro}>
-        <View style={styles.sectionIntroLeft}>
-          <Text style={styles.eyebrow}>Section I</Text>
-          <Text style={styles.sectionH1}>
-            The <Text style={styles.coverItalic}>scorecard</Text>
-            <Text style={styles.coverPunctuation}>.</Text>
+    <Page size="LETTER" style={s.page}>
+      <Header />
+      <View style={s.sectionIntro}>
+        <View style={s.sectionLeft}>
+          <Text style={s.eyebrow}>Overall score</Text>
+          <Text style={s.h1}>
+            The <Text style={{ fontStyle: "italic", color: p.forest }}>scorecard</Text>
+            <Text style={{ color: p.warmMuted }}>.</Text>
           </Text>
         </View>
-        <View style={styles.sectionIntroRight}>
-          <Text style={styles.sectionBody}>
-            Three weighted sections combined into one overall rating.
-            SB 553 is weighted at 50%, ASIS at 30%, and the site hazard
-            profile at 20% of the final score.
+        <View style={s.sectionRight}>
+          <Text style={s.body}>
+            Your SB 553 prevention program scored{" "}
+            {scores.overallScore} out of 100, placing it in the{" "}
+            {riskMeta.label.toLowerCase()} band.
           </Text>
         </View>
       </View>
 
-      {/* Section score entries */}
-      <ScoreEntry
-        section="sb553"
-        label="SB 553 Compliance"
-        sub="Statutory"
-        score={scores.sb553Score}
-        weight={50}
-      />
-      <ScoreEntry
-        section="asis"
-        label="ASIS WVPI AA-2020"
-        sub="Professional standard"
-        score={scores.asisScore}
-        weight={30}
-      />
-      <ScoreEntry
-        section="hazard"
-        label="Site Hazard Profile"
-        sub="Site profile"
-        score={scores.hazardScore}
-        weight={20}
-      />
-
-      {/* Overall — massive display numeral */}
-      <View style={styles.overallWrap}>
-        <View style={styles.overallNumberColumn}>
-          <Text style={[styles.eyebrow, styles.overallEyebrow]}>
-            Overall program rating
-          </Text>
-          <Text style={[styles.overallNumber, { color: overallTone }]}>
+      <View style={{ marginTop: 24, paddingTop: 28, borderTopWidth: 1.5, borderTopColor: p.ink, flexDirection: "row" }}>
+        <View style={{ flex: 6, paddingRight: 20 }}>
+          <Text style={s.eyebrow}>Overall program rating</Text>
+          <Text style={{ marginTop: 12, fontWeight: 300, fontSize: 160, lineHeight: 0.82, letterSpacing: -5, color: riskTone }}>
             {scores.overallScore}
           </Text>
         </View>
-        <View style={styles.overallRight}>
-          <Text style={[styles.overallLabel, { color: overallTone }]}>
-            {riskMeta.label}
-            <Text style={styles.coverPunctuation}>.</Text>
+        <View style={{ flex: 5, paddingLeft: 12, paddingTop: 16 }}>
+          <Text style={{ fontWeight: 300, fontStyle: "italic", fontSize: 32, lineHeight: 0.95, color: riskTone }}>
+            {riskMeta.label}<Text style={{ color: p.warmMuted }}>.</Text>
           </Text>
-          <Text style={styles.overallDescription}>{riskMeta.description}</Text>
+          <Text style={{ marginTop: 14, fontSize: 10, lineHeight: 1.65, color: p.ink }}>
+            {riskMeta.description}
+          </Text>
         </View>
       </View>
 
-      <RunningFooter />
+      <Footer />
     </Page>
-  );
-}
-
-function ScoreEntry({
-  section,
-  label,
-  sub,
-  score,
-  weight,
-}: {
-  section: "sb553" | "asis" | "hazard";
-  label: string;
-  sub: string;
-  score: number;
-  weight: number;
-}) {
-  const level = scoreToRiskLevel(score);
-  const tone = toneForRisk(level);
-  const riskLabel = getRiskLabel(level).label;
-
-  return (
-    <View style={styles.scoreEntry} wrap={false}>
-      <Text style={styles.scoreEntryRoman}>{SECTION_ROMANS[section]}</Text>
-      <View style={styles.scoreEntryMeta}>
-        <Text style={styles.eyebrow}>{sub}</Text>
-        <Text style={styles.scoreEntryLabel}>{label}</Text>
-        <Text style={styles.scoreEntryWeight}>
-          Weighted {weight}% of overall score
-        </Text>
-      </View>
-      <View style={styles.scoreEntryValueWrap}>
-        <View style={styles.scoreEntryValueLine}>
-          <Text style={styles.eyebrow}>Score</Text>
-          <Text style={[styles.scoreEntryValue, { color: tone }]}>
-            {score}
-            <Text style={styles.scoreEntryPct}>%</Text>
-          </Text>
-        </View>
-        <Text style={[styles.scoreEntryRisk, { color: tone }]}>
-          {riskLabel}
-        </Text>
-      </View>
-    </View>
   );
 }
 
 function GapAnalysisPage({ gaps }: { gaps: ReportGap[] }) {
   return (
-    <Page size="LETTER" style={styles.page} wrap>
-      <RunningHeader />
-
-      <View style={styles.sectionIntro}>
-        <View style={styles.sectionIntroLeft}>
-          <Text style={styles.eyebrow}>Section II</Text>
-          <Text style={styles.sectionH1}>
-            The <Text style={styles.coverItalic}>gap</Text> analysis
-            <Text style={styles.coverPunctuation}>.</Text>
+    <Page size="LETTER" style={s.page} wrap>
+      <Header />
+      <View style={s.sectionIntro}>
+        <View style={s.sectionLeft}>
+          <Text style={s.eyebrow}>Compliance gaps</Text>
+          <Text style={s.h1}>
+            Gap <Text style={{ fontStyle: "italic", color: p.forest }}>analysis</Text>
+            <Text style={{ color: p.warmMuted }}>.</Text>
           </Text>
         </View>
-        <View style={styles.sectionIntroRight}>
-          <Text style={styles.sectionBody}>
+        <View style={s.sectionRight}>
+          <Text style={s.body}>
             {gaps.length === 0
-              ? "No gaps identified. Every question answered yes or n/a — review for honesty before relying on this posture."
-              : `${gaps.length} finding${gaps.length === 1 ? "" : "s"} requiring attention. Sorted by weight, then by response severity.`}
+              ? "No gaps identified. Every category rated Effective or N/A."
+              : `${gaps.length} ${gaps.length === 1 ? "category" : "categories"} below full compliance, sorted by severity.`}
           </Text>
         </View>
       </View>
 
-      {gaps.length > 0 && (
-        <>
-          <View style={styles.tableHeader} fixed>
-            <Text style={[styles.th, { width: "6%" }]}>§</Text>
-            <Text style={[styles.th, { width: "10%" }]}>Item</Text>
-            <Text style={[styles.th, { width: "56%" }]}>Finding</Text>
-            <Text style={[styles.th, { width: "14%" }]}>Response</Text>
-            <Text style={[styles.th, { width: "14%", textAlign: "right" }]}>
-              Priority
+      {gaps.map((gap, idx) => {
+        const opt = RESPONSE_OPTIONS.find((o) => o.value === gap.response);
+        const tone = toneForResponse(gap.response);
+        const priority = gap.category.weight === 3 ? "Critical" : gap.category.weight === 2 ? "Important" : "Informational";
+        return (
+          <View key={gap.category.id} wrap={false} style={{ flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: p.ink, paddingVertical: 16 }}>
+            <Text style={{ width: "6%", fontWeight: 300, fontStyle: "italic", fontSize: 18, color: p.forest, lineHeight: 1 }}>
+              {String(idx + 1).padStart(2, "0")}
             </Text>
+            <View style={{ width: "50%", paddingRight: 12 }}>
+              <Text style={{ fontSize: 14, fontWeight: 400, lineHeight: 1.25, color: p.ink }}>{gap.category.title}</Text>
+              <Text style={{ marginTop: 4, fontSize: 8, fontStyle: "italic", color: p.warmMutedSoft }}>{gap.category.statuteRef}</Text>
+            </View>
+            <Text style={{ width: "22%", fontSize: 12, fontStyle: "italic", color: tone }}>{opt?.label ?? gap.response}</Text>
+            <Text style={{ width: "22%", fontSize: 12, fontStyle: "italic", textAlign: "right", color: gap.category.weight === 3 ? p.riskRed : p.warmMuted }}>{priority}</Text>
           </View>
+        );
+      })}
 
-          {gaps.map((gap) => (
-            <GapRow key={gap.question.id} gap={gap} />
-          ))}
-        </>
-      )}
-
-      <RunningFooter />
+      <Footer />
     </Page>
-  );
-}
-
-function GapRow({ gap }: { gap: ReportGap }) {
-  const q = gap.question;
-  const priorityLabel =
-    q.weight === 3 ? "Critical" : q.weight === 2 ? "High" : "Medium";
-  const priorityTone =
-    q.weight === 3
-      ? palette.riskRed
-      : q.weight === 2
-        ? palette.warmMuted
-        : palette.warmMutedSoft;
-  const responseTone =
-    gap.response === "no" ? palette.riskRed : palette.warmMuted;
-
-  return (
-    <View style={styles.tableRow} wrap={false}>
-      <Text style={styles.tdRoman}>{SECTION_ROMANS[q.section]}</Text>
-      <Text style={styles.tdId}>{q.id}</Text>
-      <View style={styles.tdFinding}>
-        <Text style={styles.tdFindingText}>{q.question}</Text>
-        <Text style={styles.tdFindingCategory}>{q.category}</Text>
-      </View>
-      <Text style={[styles.tdResponse, { color: responseTone }]}>
-        {gap.response === "no" ? "No" : "Partial"}
-      </Text>
-      <Text style={[styles.tdPriority, { color: priorityTone }]}>
-        {priorityLabel}
-      </Text>
-    </View>
   );
 }
 
 function RecommendationsPage({ gaps }: { gaps: ReportGap[] }) {
-  const criticalFailures = gaps.filter(
-    (g) => g.question.weight === 3 && g.response === "no",
+  const criticalGaps = gaps.filter(
+    (g) => g.category.weight === 3 && g.response === "not_compliant",
   );
 
   return (
-    <Page size="LETTER" style={styles.page} wrap>
-      <RunningHeader />
-
-      <View style={styles.sectionIntro}>
-        <View style={styles.sectionIntroLeft}>
-          <Text style={styles.eyebrow}>Section III</Text>
-          <Text style={styles.sectionH1}>
+    <Page size="LETTER" style={s.page} wrap>
+      <Header />
+      <View style={s.sectionIntro}>
+        <View style={s.sectionLeft}>
+          <Text style={s.eyebrow}>Remediation</Text>
+          <Text style={s.h1}>
             Where to{" "}
-            <Text style={[styles.coverItalic, { color: palette.riskRed }]}>
-              start
+            <Text style={{ fontStyle: "italic", color: p.riskRed }}>start</Text>
+            <Text style={{ color: p.warmMuted }}>.</Text>
+          </Text>
+        </View>
+        <View style={s.sectionRight}>
+          <Text style={s.body}>
+            {criticalGaps.length === 0
+              ? "No critical categories are rated Non-Compliant. Review the Gap Analysis for areas to improve."
+              : `${criticalGaps.length} critical ${criticalGaps.length === 1 ? "category" : "categories"} rated Non-Compliant. These carry direct citation risk.`}
+          </Text>
+        </View>
+      </View>
+
+      {gaps.filter((g) => g.response !== "na").map((gap, idx) => {
+        const rec = recommendations[gap.category.id];
+        if (!rec) return null;
+        return (
+          <View key={gap.category.id} wrap={false} style={{ flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: p.ink, paddingVertical: 20 }}>
+            <Text style={{ width: "6%", fontWeight: 300, fontStyle: "italic", fontSize: 18, color: gap.category.weight === 3 ? p.riskRed : p.forest, lineHeight: 1 }}>
+              {String(idx + 1).padStart(2, "0")}
             </Text>
-            <Text style={styles.coverPunctuation}>.</Text>
-          </Text>
-        </View>
-        <View style={styles.sectionIntroRight}>
-          <Text style={styles.sectionBody}>
-            {criticalFailures.length === 0
-              ? "No critical failures. Review the Gap Analysis for lower-priority items that still deserve attention."
-              : `${criticalFailures.length} critical finding${criticalFailures.length === 1 ? "" : "s"} with concrete remediation guidance. Each carries direct statutory or high-consequence risk exposure.`}
-          </Text>
-        </View>
-      </View>
+            <View style={{ width: "40%", paddingRight: 12 }}>
+              <Text style={{ fontSize: 7.5, fontWeight: 500, color: gap.category.weight === 3 ? p.riskRed : p.warmMuted, textTransform: "uppercase", letterSpacing: 1.4, marginBottom: 6 }}>
+                {gap.category.weight === 3 ? "Critical" : "Important"} · {gap.category.id}
+              </Text>
+              <Text style={{ fontSize: 12, fontWeight: 400, lineHeight: 1.25, color: p.ink }}>{gap.category.title}</Text>
+            </View>
+            <View style={{ width: "54%" }}>
+              <Text style={{ fontSize: 7.5, fontWeight: 500, color: p.warmMuted, textTransform: "uppercase", letterSpacing: 1.6, marginBottom: 6 }}>Remediation</Text>
+              <Text style={{ fontSize: 10, lineHeight: 1.65, color: p.ink, borderLeftWidth: 1, borderLeftColor: p.forest, paddingLeft: 10 }}>
+                {rec}
+              </Text>
+            </View>
+          </View>
+        );
+      })}
 
-      {criticalFailures.length === 0 ? (
-        <Text style={styles.recEmpty}>
-          No critical (weight 3) findings require immediate remediation.
-        </Text>
-      ) : (
-        criticalFailures.map((gap, idx) => (
-          <RecommendationEntry
-            key={gap.question.id}
-            gap={gap}
-            number={idx + 1}
-          />
-        ))
-      )}
-
-      <RunningFooter />
+      <Footer />
     </Page>
-  );
-}
-
-function RecommendationEntry({
-  gap,
-  number,
-}: {
-  gap: ReportGap;
-  number: number;
-}) {
-  const rec = recommendations[gap.question.id];
-  return (
-    <View style={styles.recEntry} wrap={false}>
-      <Text style={styles.recNumber}>
-        {String(number).padStart(2, "0")}
-      </Text>
-      <View style={styles.recTitleColumn}>
-        <Text style={styles.recEyebrow}>Critical · {gap.question.id}</Text>
-        <Text style={styles.recTitle}>{gap.question.question}</Text>
-      </View>
-      <View style={styles.recBodyColumn}>
-        <Text style={styles.recBodyLabel}>Remediation</Text>
-        <Text style={styles.recBody}>
-          {rec ?? "Remediation guidance is being prepared for this item."}
-        </Text>
-      </View>
-    </View>
   );
 }
 
@@ -978,9 +433,9 @@ export function AssessmentReport({
 }: AssessmentReportProps) {
   return (
     <Document
-      title={`ReadyState Assessment — ${organization?.name ?? "Report"}`}
+      title={`ReadyState SB 553 Assessment — ${organization?.name ?? "Report"}`}
       author="Kestralis Group, LLC"
-      subject="Workplace Violence Prevention Assessment"
+      subject="SB 553 Workplace Violence Prevention Assessment"
       creator="ReadyState by Kestralis"
       producer="ReadyState · @react-pdf/renderer"
     >
@@ -997,9 +452,7 @@ export function AssessmentReport({
   );
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatDate(date: Date): string {
+function fmt(date: Date): string {
   return date.toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",

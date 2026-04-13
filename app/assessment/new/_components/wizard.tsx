@@ -4,18 +4,16 @@ import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
-  questions,
-  sectionMeta,
-  type Question,
-  type QuestionSection,
+  getActiveCategories,
+  getCriticalCategories,
+  type Category,
+  type ResponseValue,
 } from "@/lib/assessment/questions";
-import { Button } from "@/components/ui/button";
 import {
   createOrgAndAssessment,
   saveResponse,
   finalizeAssessment,
   type OrgInfoInput,
-  type ResponseValue,
 } from "../actions";
 import { OrgInfoStep } from "./org-info-step";
 import { CategoryStep } from "./category-step";
@@ -49,41 +47,24 @@ type ResponseState = Record<
 
 interface Screen {
   kind: "org-info" | "category" | "review";
-  section?: QuestionSection;
-  category?: string;
-  questions?: Question[];
+  category?: Category;
   label: string;
 }
 
-/**
- * Flatten the question bank into a linear sequence of wizard screens:
- * [org-info] → [one screen per category in sb553 → asis → hazard order] → [review]
- */
+const CATEGORIES = getActiveCategories();
+
 function buildScreens(): Screen[] {
   const screens: Screen[] = [
-    { kind: "org-info", label: "Organization & site information" },
+    { kind: "org-info", label: "Organization & site" },
   ];
-
-  for (const section of ["sb553", "asis", "hazard"] as const) {
-    const sectionQs = questions.filter(
-      (q) => q.section === section && !q.deprecated,
-    );
-    const categoryOrder: string[] = [];
-    for (const q of sectionQs) {
-      if (!categoryOrder.includes(q.category)) categoryOrder.push(q.category);
-    }
-    for (const cat of categoryOrder) {
-      screens.push({
-        kind: "category",
-        section,
-        category: cat,
-        questions: sectionQs.filter((q) => q.category === cat),
-        label: `${sectionMeta[section].label} — ${cat}`,
-      });
-    }
+  for (const cat of CATEGORIES) {
+    screens.push({
+      kind: "category",
+      category: cat,
+      label: cat.title,
+    });
   }
-
-  screens.push({ kind: "review", label: "Review & Submit" });
+  screens.push({ kind: "review", label: "Review & submit" });
   return screens;
 }
 
@@ -115,7 +96,7 @@ export function Wizard({
 
   const currentScreen = SCREENS[screenIndex];
 
-  // ─── Step 0: create org + assessment ─────────────────────────────────────
+  // ─── Step 0: create org + assessment ──────────────────────────────
   const handleOrgInfoSubmit = async (data: OrgInfoInput) => {
     const result = await createOrgAndAssessment(data);
     if (!result.ok) {
@@ -128,25 +109,21 @@ export function Wizard({
     toast.success("Assessment created");
   };
 
-  // ─── Steps 1–3: auto-save response on click ──────────────────────────────
+  // ─── Category response ────────────────────────────────────────────
   const handleResponseChange = useCallback(
-    async (questionId: string, response: ResponseValue) => {
+    async (categoryId: string, response: ResponseValue) => {
       if (!assessmentId) {
-        toast.error("No active assessment — return to Step 1");
+        toast.error("No active assessment");
         return;
       }
-      const existing = responses[questionId];
-      // Optimistic update
+      const existing = responses[categoryId];
       setResponses((prev) => ({
         ...prev,
-        [questionId]: {
-          response,
-          notes: prev[questionId]?.notes ?? "",
-        },
+        [categoryId]: { response, notes: prev[categoryId]?.notes ?? "" },
       }));
       const result = await saveResponse({
         assessmentId,
-        questionId,
+        questionId: categoryId,
         response,
         notes: existing?.notes ?? null,
       });
@@ -154,7 +131,7 @@ export function Wizard({
         toast.error(`Save failed: ${result.error}`);
         setResponses((prev) => ({
           ...prev,
-          [questionId]: existing ?? { response: null, notes: "" },
+          [categoryId]: existing ?? { response: null, notes: "" },
         }));
       }
     },
@@ -162,17 +139,17 @@ export function Wizard({
   );
 
   const handleNotesChange = useCallback(
-    async (questionId: string, notes: string) => {
+    async (categoryId: string, notes: string) => {
       if (!assessmentId) return;
-      const existing = responses[questionId];
-      if (!existing?.response) return; // Notes require a response first
+      const existing = responses[categoryId];
+      if (!existing?.response) return;
       setResponses((prev) => ({
         ...prev,
-        [questionId]: { ...prev[questionId]!, notes },
+        [categoryId]: { ...prev[categoryId]!, notes },
       }));
       const result = await saveResponse({
         assessmentId,
-        questionId,
+        questionId: categoryId,
         response: existing.response,
         notes,
       });
@@ -183,7 +160,7 @@ export function Wizard({
     [assessmentId, responses],
   );
 
-  // ─── Step 4: finalize → redirect to thank-you page ─────────────────────
+  // ─── Finalize → redirect to thank-you ─────────────────────────────
   const handleFinalize = async () => {
     if (!assessmentId) return;
     const result = await finalizeAssessment(assessmentId);
@@ -195,46 +172,33 @@ export function Wizard({
     router.push(`/assessment/${assessmentId}/thank-you`);
   };
 
-  // ─── Gating: can user click Next on current category? ──────────────────
+  // ─── Gating: critical categories must be answered ─────────────────
   const canAdvance = useMemo(() => {
     if (currentScreen.kind !== "category") return true;
-    return (currentScreen.questions ?? [])
-      .filter((q) => q.weight === 3)
-      .every((q) => responses[q.id]?.response);
+    const cat = currentScreen.category;
+    if (!cat || cat.weight < 3) return true; // non-critical categories can be skipped
+    return Boolean(responses[cat.id]?.response);
   }, [currentScreen, responses]);
 
-  // ─── Section progress (for the in-category progress bar) ─────────────────
-  const sectionProgress = useMemo(() => {
-    if (currentScreen.kind !== "category" || !currentScreen.section)
-      return null;
-    const section = currentScreen.section;
-    const sectionQs = questions.filter(
-      (q) => q.section === section && !q.deprecated,
-    );
-    const answered = sectionQs.filter((q) => responses[q.id]?.response).length;
-    return { answered, total: sectionQs.length };
-  }, [currentScreen, responses]);
+  // ─── Progress ─────────────────────────────────────────────────────
+  const progress = useMemo(() => {
+    const total = CATEGORIES.length;
+    const answered = CATEGORIES.filter(
+      (c) => responses[c.id]?.response,
+    ).length;
+    return { answered, total };
+  }, [responses]);
 
   const handleNext = () => {
     if (screenIndex < SCREENS.length - 1) setScreenIndex(screenIndex + 1);
   };
-
   const handleBack = () => {
     if (screenIndex > 0) setScreenIndex(screenIndex - 1);
   };
 
-  /**
-   * Jump directly to the category screen containing a given question.
-   * Used by the review step to fix unanswered critical questions.
-   */
-  const handleJumpToQuestion = (questionId: string) => {
-    const q = questions.find((qq) => qq.id === questionId);
-    if (!q) return;
+  const handleJumpToCategory = (categoryId: string) => {
     const idx = SCREENS.findIndex(
-      (s) =>
-        s.kind === "category" &&
-        s.section === q.section &&
-        s.category === q.category,
+      (s) => s.kind === "category" && s.category?.id === categoryId,
     );
     if (idx >= 0) setScreenIndex(idx);
   };
@@ -243,10 +207,8 @@ export function Wizard({
     <div className="space-y-10">
       {/* ═══ Editorial page header ══════════════════════════════════ */}
       <header className="space-y-6">
-        {/* Issue-style meta line */}
         <div className="flex items-baseline justify-between border-b border-ink pb-3">
           <p className="eyebrow">
-            Folio{" "}
             <span className="font-mono tabular-figures text-ink">
               {String(screenIndex + 1).padStart(2, "0")}
             </span>
@@ -255,21 +217,14 @@ export function Wizard({
               {String(SCREENS.length).padStart(2, "0")}
             </span>
           </p>
-          {currentScreen.kind === "category" && currentScreen.section && (
-            <p className="eyebrow hidden md:block">
-              {currentScreen.section === "sb553"
-                ? "Section I · Statutory"
-                : currentScreen.section === "asis"
-                  ? "Section II · Professional"
-                  : "Section III · Site"}
-            </p>
+          {currentScreen.kind === "category" && (
+            <p className="eyebrow hidden md:block">SB 553 Compliance</p>
           )}
         </div>
 
-        {/* Title */}
         {currentScreen.kind === "org-info" ? (
           <div>
-            <p className="eyebrow mb-3">The instrument</p>
+            <p className="eyebrow mb-3">Begin</p>
             <h1 className="font-display text-5xl font-light leading-[0.95] tracking-[-0.02em] text-ink md:text-[64px]">
               Begin the{" "}
               <span className="italic text-forest">assessment</span>
@@ -277,13 +232,12 @@ export function Wizard({
             </h1>
             <p className="mt-5 max-w-xl text-[15px] leading-[1.65] text-warm-muted">
               Tell us about the organization and the specific site
-              being assessed. Each ReadyState assessment is scoped to
-              one site — no averaging across facilities.
+              being assessed. Each assessment is scoped to one site.
             </p>
           </div>
         ) : currentScreen.kind === "review" ? (
           <div>
-            <p className="eyebrow mb-3">Final folio</p>
+            <p className="eyebrow mb-3">Final review</p>
             <h1 className="font-display text-5xl font-light leading-[0.95] tracking-[-0.02em] text-ink md:text-[64px]">
               Review &amp;{" "}
               <span className="italic text-forest">submit</span>
@@ -293,30 +247,31 @@ export function Wizard({
         ) : (
           <div>
             {currentScreen.category && (
-              <p className="font-display text-[15px] italic text-warm-muted">
-                {currentScreen.section === "sb553"
-                  ? "California Labor Code §6401.9"
-                  : currentScreen.section === "asis"
-                    ? "ASIS WVPI AA-2020"
-                    : "Site Hazard Profile"}
+              <p className="eyebrow mb-3">
+                {currentScreen.category.statuteRef}
               </p>
             )}
             <h1 className="mt-2 font-display text-[40px] font-light leading-[0.98] tracking-[-0.02em] text-ink md:text-[56px]">
-              {currentScreen.category}
+              {currentScreen.label}
             </h1>
+            {currentScreen.category && (
+              <p className="mt-4 max-w-2xl text-[15px] leading-[1.65] text-warm-muted">
+                {currentScreen.category.description}
+              </p>
+            )}
           </div>
         )}
 
-        {/* Section progress — editorial progress bar */}
-        {sectionProgress && (
+        {/* Progress */}
+        {currentScreen.kind !== "org-info" && (
           <div className="space-y-2 pt-4">
             <div className="flex items-baseline justify-between">
-              <p className="eyebrow">Section progress</p>
+              <p className="eyebrow">Progress</p>
               <p className="font-mono tabular-figures text-[13px] text-ink">
-                {String(sectionProgress.answered).padStart(2, "0")}
+                {String(progress.answered).padStart(2, "0")}
                 <span className="text-warm-muted-soft">
                   {" / "}
-                  {String(sectionProgress.total).padStart(2, "0")}
+                  {String(progress.total).padStart(2, "0")}
                 </span>
               </p>
             </div>
@@ -324,7 +279,7 @@ export function Wizard({
               <div
                 className="absolute inset-y-0 left-0 bg-forest transition-[width] duration-500"
                 style={{
-                  width: `${(sectionProgress.answered / sectionProgress.total) * 100}%`,
+                  width: `${(progress.answered / progress.total) * 100}%`,
                 }}
               />
             </div>
@@ -332,6 +287,7 @@ export function Wizard({
         )}
       </header>
 
+      {/* ═══ Content ══════════════════════════════════════════════════ */}
       {currentScreen.kind === "org-info" && (
         <OrgInfoStep
           initial={initialAssessment}
@@ -339,23 +295,29 @@ export function Wizard({
         />
       )}
 
-      {currentScreen.kind === "category" && (
+      {currentScreen.kind === "category" && currentScreen.category && (
         <CategoryStep
-          questions={currentScreen.questions ?? []}
-          responses={responses}
-          onResponseChange={handleResponseChange}
-          onNotesChange={handleNotesChange}
+          category={currentScreen.category}
+          response={responses[currentScreen.category.id]?.response ?? null}
+          notes={responses[currentScreen.category.id]?.notes ?? ""}
+          onResponseChange={(r) =>
+            handleResponseChange(currentScreen.category!.id, r)
+          }
+          onNotesChange={(n) =>
+            handleNotesChange(currentScreen.category!.id, n)
+          }
         />
       )}
 
       {currentScreen.kind === "review" && (
         <ReviewStep
           responses={responses}
-          onJumpToQuestion={handleJumpToQuestion}
+          onJumpToCategory={handleJumpToCategory}
           onSubmit={handleFinalize}
         />
       )}
 
+      {/* ═══ Footer nav ══════════════════════════════════════════════ */}
       {currentScreen.kind !== "org-info" && (
         <div className="flex items-center justify-between gap-3 border-t border-ink pt-8">
           <button
@@ -379,7 +341,7 @@ export function Wizard({
               <>
                 {!canAdvance && (
                   <span className="hidden font-display text-[13px] italic text-warm-muted md:inline">
-                    Answer all critical questions to continue
+                    Required — select a compliance level to continue
                   </span>
                 )}
                 <button
