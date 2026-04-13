@@ -1,183 +1,206 @@
-# ReadyState — Build Summary
+# ReadyState — Session Revision Log
 
-**Product:** ReadyState by Kestralis Group, LLC
-**Domain:** https://readystate.now
-**Repo:** https://github.com/markahope-aag/readystate
-**Vercel:** https://vercel.com/asymmetric1/readystate
+This document explains every major change made to ReadyState during the April 9–13, 2026 build session, in chronological order. Each entry describes what changed, why, and what it replaced.
 
 ---
 
-## What it is
+## 1. Initial Scaffold
 
-ReadyState is a free, anonymous SB 553 compliance assessment tool. California employers answer 10 statutory-category evaluations and receive a Kestralis-branded PDF report with a compliance score, gap analysis, and remediation guidance — delivered to their inbox via email. No account required.
+**Commit:** `95d547d`
 
-## Stack
+Created the Next.js 14 app in `/projects/readystate` with TypeScript, Tailwind, Clerk v5 for auth, Supabase (`@supabase/ssr`) for the database, shadcn/ui (new-york / slate), Sonner for toasts, and Vitest for testing. Set up `.env.local` with Clerk + Supabase credentials. Configured middleware to protect `/dashboard` and `/assessment` routes.
 
-| Layer | Technology |
-|---|---|
-| Framework | Next.js 16 (App Router, Turbopack, React 19) |
-| Language | TypeScript (strict mode) |
-| Database | Supabase Postgres (service role, no end-user auth) |
-| Styling | Tailwind CSS + custom editorial design system |
-| Typography | Fraunces (display serif) + Geist Sans/Mono (body) |
-| PDF | @react-pdf/renderer (server-side) |
-| Email | Resend (PDF attachment delivery) |
-| Toasts | Sonner |
-| Tests | Vitest (13 unit tests on scoring engine) |
-| CI | GitHub Actions (tsc + vitest on every push) |
-| Hosting | Vercel (Node runtime) |
+## 2. Database Schema
 
-## Routes
+**Commits:** `95d547d` → `f034832`
 
-```
-/                                 Landing page (static)
-/assessment/new                   12-step wizard (org info + 10 categories + review)
-/assessment/[id]/thank-you        Contact capture → email PDF delivery
-/assessment/[id]/results          HTML report (public, UUID-gated)
-/api/assessment/[id]/report       PDF download (GET → application/pdf)
-/api/cron/flag-stale              Daily cron: delete abandoned + flag stale
-/api/debug/env                    Diagnostic: env var presence check (temporary)
-```
+Created three Supabase migrations:
+- **001:** Core tables (`organizations`, `assessments`, `assessment_responses`, `assessment_scores`) with RLS policies gating access by the Clerk user ID via `auth.jwt() ->> 'sub'`. Helper functions `clerk_user_id()` and `user_belongs_to_org()`.
+- **002:** Explicit `organization_members` table with owner/admin/member roles, replacing the original derived-membership model. Auto-add-creator trigger on org insert.
+- **003:** Unique constraint on `(assessment_id, question_id)` for idempotent auto-save upserts.
 
-## Assessment Model (v2)
+Clerk was registered as a third-party auth provider in Supabase via the Management API so Supabase could verify Clerk JWTs directly.
 
-**10 SB 553 statutory categories**, each evaluated with a compliance selector:
+## 3. Question Bank (v1)
 
-| # | Category | Sub-reqs | Weight |
-|---|---|:---:|---|
-| 01 | Written Plan & Accessibility | 5 | Critical |
-| 02 | Responsible Persons & Administration | 4 | Critical |
-| 03 | Employee Involvement | 10 | Critical |
-| 04 | Hazard ID, Evaluation & Correction | 6 | Critical |
-| 05 | Training Program | 10 | Critical |
-| 06 | Reporting, Response & Anti-Retaliation | 7 | Critical |
-| 07 | Emergency Response Procedures | 4 | Important |
-| 08 | Violent Incident Log | 12 | Critical |
-| 09 | Recordkeeping | 6 | Important |
-| 10 | Plan Review & Continuous Improvement | 4 | Important |
+**Commit:** `f034832`
 
-**Response options per category:**
+Created 40 individual yes/no/partial/na questions across three standards:
+- **SB 553 Statutory Compliance** (18 questions) — California Labor Code §6401.9
+- **ASIS WVPI AA-2020** (12 questions) — professional standard
+- **Site Hazard Profile** (10 questions) — physical/operational risk
 
-| Level | Meaning | Score |
-|---|---|---|
-| Effective | All sub-requirements implemented and working | weight × 4 |
-| Implemented | In place but not verified effective | weight × 3 |
-| Partial | Some gaps exist | weight × 2 |
-| Not Compliant | Missing or seriously deficient | 0 |
-| N/A | Doesn't apply | excluded |
+Each question had a weight (1–3), guidance text, and an ID stability contract preventing renumbering.
 
-**Risk bands:** ≥80 Low, ≥60 Moderate, ≥40 High, <40 Critical
+## 4. Assessment Wizard
 
-## User Flow
+**Commit:** `f034832`
 
-```
-Landing page → Start Assessment → Org info form → 10 category screens
-→ Review & submit → Thank-you page → Enter name/email/role
-→ PDF report emailed via Resend → Done
-```
+Built a 17-screen linear wizard at `/assessment/new`:
+- Step 0: Org info form (creates `organizations` + `assessments` rows)
+- Steps 1–15: Questions grouped by category, one category per screen
+- Step 16: Review + submit
 
-- **Save & continue later** — email a resume link from any wizard screen
-- **Resume** — `/assessment/new?id=<uuid>` restores all progress
-- **PDF download** — also available from the HTML results page
-- **30-day retention** — abandoned in-progress assessments auto-deleted by daily cron
+Each response was auto-saved on click via server action → Supabase upsert. Progress persisted via `?id=<uuid>` in the URL. Critical (weight-3) questions gated the Next button.
 
-## Design System
+## 5. Scoring Engine
 
-**Aesthetic:** Editorial / Swiss — warm cream paper, deep navy accent, Fraunces italic display type, rule-line layouts, asymmetric 12-column grids.
+**Commit:** `44c67f7`
 
-- **Palette:** paper `#f5f4ed`, ink `#0c0c0a`, navy (forest token) `#0D1B2E`, sand `#c9bd9c`, amber `#F5A623`, risk-red `#a02020`
-- **Typography:** Fraunces (display), Geist Sans (body), Geist Mono (metadata)
-- **Logo:** Inline SVG component with navy badge + amber shield/checkmark + Geist wordmark
-- **Patterns:** Eyebrow labels, folio pagination, roman numerals, italic editorial links, rule-line progress bars
+Split into pure function (`computeScores`) + orchestrator (`calculateScores`). Per-question scoring: yes = weight×2, partial = weight×1, no = 0, na = excluded. Three section scores weighted 50/30/20 into an overall score. Risk bands: ≥85 low, ≥70 moderate, ≥50 high, <50 critical. 10 Vitest unit tests covering all edge cases.
 
-## Database (Supabase)
+Wired into the wizard's `finalizeAssessment` action so submitting automatically scored.
 
-**6 migrations applied:**
+## 6. Results Page + PDF Export
 
-| # | Migration | Purpose |
-|---|---|---|
-| 001 | initial_schema | organizations, assessments, responses, scores + RLS |
-| 002 | organization_members | Explicit membership table (legacy, unused) |
-| 003 | response_uniqueness | Unique constraint for idempotent upserts |
-| 004 | profiles | Clerk user mirror (legacy, unused) |
-| 005 | public_assessments | Nullable clerk_user_id + contact columns |
-| 006 | v2_response_values | Updated CHECK constraint for compliance selectors |
+**Commits:** `f15cd99`, `b750439`
 
-**Auth model:** No end-user authentication. All reads/writes use the Supabase service role. UUID is the effective bearer token.
+Built `/assessment/[id]/results` with score summary cards (SVG progress rings), gap analysis table, and remediation recommendations. Created `lib/pdf/AssessmentReport.tsx` using `@react-pdf/renderer` with a 4-page Kestralis-branded PDF (cover, exec summary, gap table, recommendations). API route at `/api/assessment/[id]/report` renders the PDF server-side and returns it as `application/pdf`.
 
-## Email (Resend)
+## 7. Dashboard + History Pages
 
-- **Report delivery:** PDF as base64 attachment, HTML + text bodies with inline score box and consultation CTA
-- **Resume link:** Simple HTML email with "Continue assessment →" CTA button
-- **Sending domain:** `readystate.now` (verified with Resend)
-- **From address:** configurable via `RESEND_FROM_EMAIL` env var
+**Commit:** `8a68a3d`
 
-## PDF Report
+Built `/dashboard` (stats, recent assessments, quick reference) and `/history` (filterable, sortable table with URL-driven filters). Both were server components using Clerk auth + RLS-gated Supabase queries.
 
-4-page Kestralis-branded document:
+## 8. Next 14 → 16 Upgrade
 
-1. **Cover** — org name, site, date, risk badge
-2. **Scorecard** — 160pt overall score numeral + risk label
-3. **Gap Analysis** — editorial table of categories below Effective
-4. **Remediation** — numbered recommendations for each gap
+**Commit:** `1bfde52`
 
-Rendered server-side via `@react-pdf/renderer` with registered Fraunces fonts from jsDelivr CDN.
+Upgraded all major dependencies:
+- Next.js 14.2.35 → **16.2.3**
+- React 18 → **19.2.5**
+- @clerk/nextjs 5.7.5 → **7.0.12**
+- ESLint 8 → 9
 
-## Environment Variables
+**Breaking changes fixed:**
+- `middleware.ts` renamed to `proxy.ts` (Next 16 convention)
+- `auth()` became async — awaited everywhere
+- `cookies()` became async — `createClient()` became async
+- `params` and `searchParams` became `Promise<T>` — awaited in all dynamic routes
+- `<SignedIn>` / `<SignedOut>` replaced with `<Show when="signed-in">` / `<Show when="signed-out">` (Clerk v7)
+- `UserButton.afterSignOutUrl` prop removed
 
-| Variable | Required | Purpose |
-|---|:---:|---|
-| `NEXT_PUBLIC_APP_URL` | ✅ | `https://readystate.now` |
-| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | Supabase anon JWT |
-| `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Service role JWT |
-| `RESEND_API_KEY` | ✅ | Email delivery |
-| `RESEND_FROM_EMAIL` | ⚠️ | Override sender (defaults to reports@readystate.now) |
-| `CRON_SECRET` | ✅ | Vercel cron auth |
+## 9. Clerk Production Environment
 
-Note: `NEXT_PUBLIC_*` vars are inlined at build time. Changing them requires a rebuild.
+**Commits:** `f7528ec`, `a3e0b94`
 
-## Commit History (26 commits)
+Swapped from Clerk test keys (`pk_test_`) to production keys (`pk_live_`). Updated Supabase third-party auth provider from the dev Clerk instance to the production one (`clerk.readystate.now`). Fixed `proxy.ts` to redirect unauthenticated users to `/` instead of returning 404 (Clerk v7 behavior change).
 
-```
-95d547d  scaffold Next.js 14 app
-f034832  multi-step assessment wizard
-44c67f7  scoring engine + wire into finalize
-9584963  landing page
-f15cd99  results page
-8a68a3d  dashboard + history pages
-1bfde52  upgrade to Next 16 + React 19 + Clerk 7
-f7528ec  trigger rebuild for prod Clerk keys
-a3e0b94  proxy redirects fix
-b750439  PDF report export
-45352be  polish pass (error boundaries, cron, README)
-fca4713  address 6 gap items (layout, sign-in, webhook, CI, proxy docs)
-3a92180  fix vercel.json env section
-731353c  anonymous lead-gen flow, remove all auth
-c550355  surface assessment creation errors
-0e15bc2  diagnostic env endpoint
-dbccfd2  rebuild for env vars
-3666753  resend report fix
-ec5d905  save & continue later + cron cleanup
-896209e  editorial/Swiss redesign
-071fbd9  results + PDF editorial aesthetic
-3b2bf10  brand logo + favicon integration
-bf5e53d  inline SVG logo
-84eb5fc  thicken logo strokes for header scale
-a37699c  prevention-focused landing page
-67b820a  v2 assessment model (10 categories, compliance selectors)
-```
+## 10. Removal of All Authentication
 
-## What's Not Built (Known Trade-offs)
+**Commit:** `731353c`
 
-- **No user accounts** — anonymous lead-gen only. Users can't list past assessments.
-- **No multi-site roll-up** — each assessment is standalone per site.
-- **No corrective action tracking** — the report identifies gaps but doesn't track remediation.
-- **No anonymous incident reporting portal** — would complement the prevention focus.
-- **No training log integration** — training compliance is evaluated but not tracked.
-- **Legacy migrations 002 + 004** are applied but unused (from the auth era).
-- **`/api/debug/env` still live** — safe but should be removed before launch.
+**Major pivot.** Removed Clerk entirely. ReadyState became a free, anonymous lead-gen tool — no sign-up, no sign-in, no user accounts.
+
+**Why:** The product strategy shifted from "authenticated SaaS" to "anonymous assessment → lead capture → email report." Users take the assessment without friction, provide contact info at the end, and receive the PDF.
+
+**What was deleted:**
+- `@clerk/nextjs` and `svix` packages
+- `proxy.ts` (middleware no longer needed)
+- Dashboard, history, sign-in, sign-up pages
+- App header, clickable table row, queries helper
+- Browser Supabase client (no more Clerk token forwarding)
+- Clerk webhook endpoint
+
+**What was added:**
+- Thank-you page (`/assessment/[id]/thank-you`) with contact form
+- Resend email delivery (`lib/email/send-report.tsx`) with PDF attachment
+- Service-role-only Supabase client
+- Migration 005: `clerk_user_id` made nullable, `contact_name`/`contact_email`/`contact_role`/`email_sent_at` columns added
+
+## 11. Save & Continue Later
+
+**Commit:** `ec5d905`
+
+Added a "Save & continue later" button to the wizard footer. User enters their email → server action saves it against the assessment and sends a Resend email with the resume URL. Assessment stays for 30 days before auto-deletion by the daily cron. Extended `/api/cron/flag-stale` to delete abandoned in-progress assessments older than 30 days.
+
+## 12. Editorial / Swiss Redesign
+
+**Commit:** `896209e`
+
+Complete aesthetic overhaul from generic shadcn slate to an editorial compliance-publication look.
+
+- **Typography:** Fraunces (Google Fonts variable serif) for display, Geist Sans for body, Geist Mono for metadata
+- **Palette:** warm cream paper `#f5f4ed`, deep ink `#0c0c0a`, forest (later navy) accent, sand rule lines
+- **Layout language:** rule lines instead of card borders, asymmetric 12-column grids, folio pagination, Roman numerals, eyebrow labels, italic display type for emphasis
+- **Applied to:** landing page, wizard chrome, org-info form, question cards, review step, thank-you page
+
+## 13. Results Page + PDF Editorial Redesign
+
+**Commit:** `071fbd9`
+
+Rewrote the results page and PDF report to match the editorial aesthetic:
+- Oversized org-name masthead (112px Fraunces)
+- Typographic score entries with 96px score numerals (no rings/charts)
+- 320px overall score display
+- Rule-lined gap analysis table with italic severity indicators
+- Numbered remediation entries with forest left-border quotes
+- PDF registers Fraunces from jsDelivr CDN for real serif rendering
+
+## 14. Brand Integration
+
+**Commits:** `3b2bf10`, `bf5e53d`, `84eb5fc`
+
+Adopted the ReadyState brand assets from `/public`:
+- Shifted the editorial green accent to brand navy `#0D1B2E`
+- Created inline SVG logo component with transparent background (navy badge + amber shield/checkmark + Geist wordmark)
+- Thickened shield/checkmark strokes for visibility at header scale (40–44px)
+- Wired favicon (SVG + ICO), apple-touch icon, OpenGraph metadata
+
+## 15. Prevention-Focused Landing Page
+
+**Commit:** `a37699c`
+
+Complete content rewrite aligned with the core statutory mandate: *"An employer shall establish, implement and maintain an effective workplace violence prevention plan."*
+
+- Headline: "Not just a plan. An effective *prevention* program."
+- New "Prevention vs. Reaction" section distinguishing proactive prevention from reactive response
+- 10 statutory requirement areas listed with descriptions
+- Removed "three standards" framing
+- SB 553 branded throughout (not "Labor Code §6401.9")
+- Start Assessment as a prominent filled navy button (3 click opportunities)
+
+## 16. v2 Assessment Model
+
+**Commit:** `67b820a`
+
+**Fundamental restructure** from 40 individual yes/no questions to 10 SB 553 statutory categories with compliance-level selectors.
+
+**Why:** The statute organizes requirements by area, not by individual checkbox. The v1 model was too granular — users spent 45 minutes on yes/no clicks without reflecting on whether their program was *actually effective*. The v2 model forces a holistic evaluation per area.
+
+**New response model:** Effective / Implemented / Partial / Not Compliant / N/A
+
+**Scoring change:** Single SB 553 dimension. Tighter risk bands (≥80/≥60/≥40/<40). Per-category max = weight × 4.
+
+**The 10 categories** map directly to the statute text:
+1. Written Plan & Accessibility (5 sub-requirements)
+2. Responsible Persons & Administration (4)
+3. Employee Involvement (10)
+4. Hazard ID, Evaluation & Correction (6)
+5. Training Program (10)
+6. Reporting, Response & Anti-Retaliation (7)
+7. Emergency Response Procedures (4)
+8. Violent Incident Log (12)
+9. Recordkeeping (6)
+10. Plan Review & Continuous Improvement (4)
+
+**What was removed:** ASIS WVPI AA-2020 section, Site Hazard Profile section, three-section scoring weights, `question-card.tsx`, `Question` type, `sectionMeta`.
+
+**What was updated:** Every downstream consumer — wizard, review step, results page, thank-you actions, PDF report, API route, scoring engine (13 tests passing), recommendations map, DB constraint (migration 006).
 
 ---
 
-*Built for Kestralis Group, LLC · Powered by Asymmetric Marketing*
+## Current State
+
+- **26 commits** on `main`
+- **13 unit tests** passing (scoring engine)
+- **6 Supabase migrations** applied
+- **7 routes** (landing, wizard, thank-you, results, PDF API, cron, debug)
+- **No authentication** — anonymous lead-gen model
+- **Vercel deployment** at `readystate.now`
+- **Resend email delivery** with `readystate.now` verified domain
+
+---
+
+*ReadyState is a product of Kestralis Group, LLC · Powered by Asymmetric Marketing*
