@@ -114,7 +114,7 @@ export default async function ResultsPage({
         <div className="mx-auto flex max-w-[960px] items-center justify-between px-6 h-16">
           <BrandLogo variant="onLight" height={24} />
           <span className="hidden md:block text-[0.6875rem] font-medium uppercase tracking-[0.1em] text-[color:var(--color-muted)]">
-            A Kestralis product
+            <a href="https://kestralisgroup.com" target="_blank" rel="noopener noreferrer" className="hover:text-[color:var(--color-navy)] transition-colors">A Kestralis product</a>
           </span>
         </div>
       </header>
@@ -315,7 +315,7 @@ export default async function ResultsPage({
             <span className="text-[0.75rem]">readystate.now</span>
           </div>
           <p className="mt-6 text-center text-[0.75rem] text-white/40">
-            A product of Kestralis Group, LLC · California, 2026. Not legal advice.
+            A product of <a href="https://kestralisgroup.com" target="_blank" rel="noopener noreferrer" className="hover:text-white/60 transition-colors underline underline-offset-2">Kestralis Group, LLC</a> · California, 2026. Not legal advice.
           </p>
         </div>
       </footer>
