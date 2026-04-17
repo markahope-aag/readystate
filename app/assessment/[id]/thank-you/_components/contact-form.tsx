@@ -50,45 +50,37 @@ export function ContactForm({ assessmentId, alreadySent, orgName }: Props) {
 
   if (sent) {
     return (
-      <div className="border border-forest bg-paper p-10">
-        <p className="eyebrow mb-3 text-forest">Delivered</p>
-        <h3 className="font-display text-[36px] font-light italic leading-[1] text-forest md:text-[44px]">
+      <div className="border border-[color:var(--color-navy)] bg-white rounded-sm p-8 md:p-10">
+        <p className="eyebrow mb-3">Delivered</p>
+        <h3 className="text-[1.75rem] font-bold text-[color:var(--color-navy)]">
           On its way.
         </h3>
-        <p className="mt-6 text-[15px] leading-[1.65] text-ink">
+        <p className="mt-5 text-[0.9375rem] leading-[1.65] text-[color:var(--color-body)]">
           We&rsquo;ve emailed your ReadyState SB 553 assessment report
           {orgName ? (
             <>
-              {" "}
-              for{" "}
-              <span className="font-display italic text-forest">
+              {" "}for{" "}
+              <span className="font-semibold text-[color:var(--color-navy)]">
                 {orgName}
               </span>
             </>
           ) : null}
           . It should land in your inbox within a minute or two.
         </p>
-        <p className="mt-4 rounded-sm border-l-2 border-forest bg-sand-soft/60 py-2 pl-4 text-[13px] leading-[1.6] text-ink">
+        <p className="mt-4 border-l-2 border-[color:var(--color-blue)] bg-[color:var(--color-gray-light)] rounded-r-sm py-3 pl-4 pr-4 text-[0.8125rem] leading-[1.6] text-[color:var(--color-body)]">
           <strong className="font-semibold">
             If you don&rsquo;t see it,
           </strong>{" "}
-          check your spam or promotions folder first. New sender
-          domains often get filtered on first contact — mark it as
-          &ldquo;not spam&rdquo; to ensure future deliveries land in
-          the inbox.
+          check your spam or promotions folder first. New sender domains
+          often get filtered on first contact.
         </p>
-        <div className="mt-8 border-t border-ink/20 pt-6">
+        <div className="mt-8 border-t border-[color:var(--color-border)] pt-6">
           <button
             type="button"
             onClick={() => setSent(false)}
-            className="group inline-flex items-baseline gap-2 font-display text-[14px] italic text-warm-muted hover:text-ink"
+            className="text-[0.8125rem] font-medium text-[color:var(--color-blue)] hover:text-[color:var(--color-navy)] underline underline-offset-2 transition-colors"
           >
-            <span className="link-editorial">
-              Send to a different email address
-            </span>
-            <span className="transition-transform duration-300 group-hover:translate-x-1">
-              →
-            </span>
+            Send to a different email address →
           </button>
         </div>
       </div>
@@ -96,8 +88,9 @@ export function ContactForm({ assessmentId, alreadySent, orgName }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
-      <ThankYouField label="Full name" htmlFor="contact-name">
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="space-y-1">
+        <label htmlFor="contact-name" className="form-label">Full name</label>
         <input
           id="contact-name"
           value={name}
@@ -106,11 +99,12 @@ export function ContactForm({ assessmentId, alreadySent, orgName }: Props) {
           autoComplete="name"
           placeholder="Jane Doe"
           disabled={submitting}
-          className="w-full border-0 border-b border-ink/50 bg-transparent pb-2 pt-1 font-display text-[22px] font-light text-ink placeholder:italic placeholder:text-warm-muted-soft focus:border-ink focus:outline-none focus:ring-0 disabled:cursor-not-allowed md:text-[26px]"
+          className="form-input"
         />
-      </ThankYouField>
+      </div>
 
-      <ThankYouField label="Work email" htmlFor="contact-email">
+      <div className="space-y-1">
+        <label htmlFor="contact-email" className="form-label">Work email</label>
         <input
           id="contact-email"
           type="email"
@@ -120,11 +114,12 @@ export function ContactForm({ assessmentId, alreadySent, orgName }: Props) {
           autoComplete="email"
           placeholder="jane@company.com"
           disabled={submitting}
-          className="w-full border-0 border-b border-ink/50 bg-transparent pb-2 pt-1 font-sans text-[18px] text-ink placeholder:italic placeholder:text-warm-muted-soft focus:border-ink focus:outline-none focus:ring-0 disabled:cursor-not-allowed md:text-[20px]"
+          className="form-input"
         />
-      </ThankYouField>
+      </div>
 
-      <ThankYouField label="Your role" htmlFor="contact-role">
+      <div className="space-y-1">
+        <label htmlFor="contact-role" className="form-label">Your role</label>
         <input
           id="contact-role"
           value={role}
@@ -132,46 +127,19 @@ export function ContactForm({ assessmentId, alreadySent, orgName }: Props) {
           required
           placeholder="Safety Manager, Head of People, etc."
           disabled={submitting}
-          className="w-full border-0 border-b border-ink/50 bg-transparent pb-2 pt-1 font-display text-[20px] font-light text-ink placeholder:italic placeholder:text-warm-muted-soft focus:border-ink focus:outline-none focus:ring-0 disabled:cursor-not-allowed md:text-[22px]"
+          className="form-input"
         />
-      </ThankYouField>
+      </div>
 
-      <div className="flex items-baseline justify-end border-t border-ink pt-8">
+      <div className="pt-4">
         <button
           type="submit"
           disabled={submitting}
-          className="group inline-flex items-baseline gap-3 font-display text-[22px] font-light italic text-ink disabled:cursor-not-allowed disabled:text-warm-muted-soft md:text-[28px]"
+          className="btn btn-primary w-full py-4"
         >
-          <span className="link-editorial">
-            {submitting ? "Sending…" : "Send me the report"}
-          </span>
-          <span className="transition-transform duration-300 group-hover:translate-x-2">
-            →
-          </span>
+          {submitting ? "Sending…" : "Send Me the Report →"}
         </button>
       </div>
     </form>
-  );
-}
-
-function ThankYouField({
-  label,
-  htmlFor,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-2">
-      <label
-        htmlFor={htmlFor}
-        className="font-display text-[15px] italic text-forest"
-      >
-        {label}
-      </label>
-      {children}
-    </div>
   );
 }

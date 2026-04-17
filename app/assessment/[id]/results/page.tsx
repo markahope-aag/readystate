@@ -25,7 +25,31 @@ interface Gap {
   response: ResponseValue;
 }
 
-const CONSULTATION_URL = "https://meetings.hubspot.com/mark-hope2";
+const CONSULTATION_URL = "https://kestralisgroup.com/contact/consultation";
+
+/** Score color by risk band */
+const SCORE_COLOR: Record<RiskLevel, string> = {
+  critical: "text-[#DC2626]",
+  high: "text-[#D97706]",
+  moderate: "text-[color:var(--color-blue)]",
+  low: "text-[#16A34A]",
+};
+
+/** Border color for gap severity */
+const GAP_BORDER: Record<string, string> = {
+  not_compliant: "border-l-[#DC2626]",
+  partial: "border-l-[#D97706]",
+  implemented: "border-l-[color:var(--color-navy)]",
+};
+
+/** Response label color */
+const RESPONSE_COLOR: Record<string, string> = {
+  effective: "text-[color:var(--color-navy)]",
+  implemented: "text-[color:var(--color-blue)]",
+  partial: "text-[#D97706]",
+  not_compliant: "text-[#DC2626]",
+  na: "text-[color:var(--color-muted)]",
+};
 
 export default async function ResultsPage({
   params,
@@ -60,7 +84,6 @@ export default async function ResultsPage({
     .select("question_id, response")
     .eq("assessment_id", id);
 
-  // Build response map + gap list
   const responseMap = new Map<string, ResponseValue>();
   const gaps: Gap[] = [];
   for (const r of (responses ?? []) as Array<{ question_id: string; response: string }>) {
@@ -82,160 +105,159 @@ export default async function ResultsPage({
     employee_count: number | null; california_locations: number | null;
   } | null;
   const assessedAt = assessment.updated_at ?? assessment.created_at;
+  const riskMeta = getRiskLabel(riskLevel);
 
   return (
-    <div className="min-h-screen bg-paper">
-      <header className="border-b border-ink">
-        <div className="mx-auto flex max-w-[1400px] items-center justify-between px-6 py-5 md:px-12">
-          <BrandLogo variant="onLight" height={36} />
-          <span className="eyebrow">The report</span>
+    <div className="min-h-screen bg-white">
+      {/* ═══ Nav ═══════════════════════════════════════════════════════ */}
+      <header className="sticky top-0 z-20 border-b border-[color:var(--color-border)] bg-white">
+        <div className="mx-auto flex max-w-[960px] items-center justify-between px-6 h-16">
+          <BrandLogo variant="onLight" height={24} />
+          <span className="hidden md:block text-[0.6875rem] font-medium uppercase tracking-[0.1em] text-[color:var(--color-muted)]">
+            A Kestralis product
+          </span>
         </div>
       </header>
 
       {/* ═══ Masthead ═══════════════════════════════════════════════ */}
-      <section className="relative border-b border-ink">
-        <div className="mx-auto max-w-[1400px] px-6 pt-16 pb-16 md:px-12 md:pt-20 md:pb-20">
-          <div className="mb-12 flex flex-wrap items-baseline justify-between gap-4 md:mb-16">
+      <section className="border-b border-[color:var(--color-border)]">
+        <div className="mx-auto max-w-[960px] px-6 pt-14 pb-14 md:pt-20 md:pb-16">
+          <div className="flex flex-wrap items-baseline justify-between gap-4 mb-10">
             <div className="flex items-baseline gap-6">
               <span className="eyebrow">SB 553 Assessment</span>
-              <span className="eyebrow hidden md:inline">
-                Issued · {formatDate(assessedAt)}
+              <span className="text-[0.6875rem] text-[color:var(--color-muted)] hidden md:inline">
+                {formatDate(assessedAt)}
               </span>
             </div>
             <DownloadReportButton assessmentId={id} />
           </div>
 
-          <div className="grid gap-10 md:grid-cols-12 md:gap-8">
+          <div className="grid gap-10 md:grid-cols-12 md:gap-8 md:items-end">
             <div className="md:col-span-8">
-              <h1 className="font-display text-[48px] font-light leading-[0.98] tracking-[-0.022em] text-ink md:text-[88px] lg:text-[112px]">
+              <h1 className="text-[clamp(2.5rem,2rem+2.5vw,4rem)] font-bold leading-[1.06] tracking-[-0.02em] text-[color:var(--color-navy)]">
                 {org?.name ?? "Unknown"}
-                <span className="text-warm-muted">.</span>
               </h1>
-              <p className="mt-6 font-display text-[18px] font-light italic leading-snug text-warm-muted md:text-[22px]">
+              <p className="mt-3 text-[1.0625rem] text-[color:var(--color-muted)]">
                 {assessment.site_name ?? "—"}
-                {assessment.site_address && (
-                  <span className="text-warm-muted-soft">
-                    {" · "}{assessment.site_address}
-                  </span>
-                )}
+                {assessment.site_address && <span> · {assessment.site_address}</span>}
               </p>
             </div>
             <div className="md:col-span-4">
-              <RiskBand level={riskLevel} score={scores.overall_score ?? 0} />
+              {/* Score badge */}
+              <div className="border-2 border-[color:var(--color-navy)] rounded-sm p-6">
+                <p className="eyebrow mb-2">Overall Score</p>
+                <p className={cn("text-[4rem] font-bold tabular-figures leading-none", SCORE_COLOR[riskLevel])}>
+                  {scores.overall_score ?? 0}
+                </p>
+                <p className={cn("mt-2 text-[0.875rem] font-semibold uppercase tracking-[0.06em]", SCORE_COLOR[riskLevel])}>
+                  {riskMeta.label}
+                </p>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       {/* ═══ Category scorecard ═════════════════════════════════════ */}
-      <section className="border-b border-ink">
-        <div className="mx-auto max-w-[1400px] px-6 py-20 md:px-12 md:py-24">
-          <div className="mb-12 md:mb-16">
-            <p className="eyebrow mb-3">Scorecard</p>
-            <h2 className="font-display text-[44px] font-light leading-[0.95] tracking-[-0.02em] text-ink md:text-[64px]">
-              Category{" "}
-              <span className="italic text-forest">results</span>
-              <span className="text-warm-muted">.</span>
-            </h2>
-          </div>
+      <section className="border-b border-[color:var(--color-border)]">
+        <div className="mx-auto max-w-[960px] px-6 py-16 md:py-20">
+          <p className="eyebrow">— Scorecard</p>
+          <h2 className="mt-5 text-[clamp(1.75rem,1.25rem+2vw,2.75rem)] font-semibold tracking-[-0.012em] text-[color:var(--color-navy)]">
+            Category results.
+          </h2>
 
-          <div className="space-y-0 border-t border-ink">
+          <ol className="mt-12 border-t-2 border-[color:var(--color-navy)]">
             {getActiveCategories().map((cat, idx) => {
               const resp = responseMap.get(cat.id);
               const opt = resp ? RESPONSE_OPTIONS.find((o) => o.value === resp) : null;
               return (
-                <div
+                <li
                   key={cat.id}
-                  className="grid grid-cols-12 gap-4 border-b border-ink/30 py-8 md:gap-10 md:py-10"
+                  className="grid grid-cols-12 gap-4 border-b border-[color:var(--color-border)] py-5 md:gap-8 md:py-6"
                 >
                   <div className="col-span-1">
-                    <span className="font-display text-[28px] font-light italic leading-none text-forest">
+                    <span className="text-[1.25rem] font-bold text-[color:var(--color-blue-light)] tabular-figures leading-none">
                       {String(idx + 1).padStart(2, "0")}
                     </span>
                   </div>
                   <div className="col-span-7 md:col-span-6">
-                    <h3 className="font-display text-[18px] font-light leading-[1.1] text-ink md:text-[22px]">
+                    <h3 className="text-[0.9375rem] font-semibold text-[color:var(--color-navy)]">
                       {cat.title}
                     </h3>
-                    <p className="mt-1 font-display text-[11px] italic text-warm-muted-soft">
+                    <p className="mt-0.5 text-[0.6875rem] text-[color:var(--color-muted)]">
                       {cat.statuteRef}
                     </p>
                   </div>
                   <div className="col-span-4 md:col-span-5 md:text-right">
                     <p className={cn(
-                      "font-display text-[18px] italic md:text-[22px]",
-                      !resp ? "text-warm-muted-soft"
-                        : resp === "effective" ? "text-forest"
-                        : resp === "implemented" ? "text-forest-soft"
-                        : resp === "partial" ? "text-sand-deep"
-                        : resp === "not_compliant" ? "text-risk-red"
-                        : "text-warm-muted",
+                      "text-[0.9375rem] font-semibold",
+                      RESPONSE_COLOR[resp ?? ""] ?? "text-[color:var(--color-muted)]",
                     )}>
                       {opt?.label ?? (resp === "na" ? "N/A" : "—")}
                     </p>
                   </div>
-                </div>
+                </li>
               );
             })}
-          </div>
+          </ol>
 
-          {/* Overall score */}
-          <div className="mt-20 border-t-2 border-ink pt-16 md:mt-24 md:pt-20">
-            <OverallBlock score={scores.overall_score ?? 0} riskLevel={riskLevel} />
+          {/* Overall score — large */}
+          <div className="mt-20 border-t-2 border-[color:var(--color-navy)] pt-16 text-center">
+            <p className="eyebrow mb-4">Overall Program Rating</p>
+            <p className={cn("text-[clamp(5rem,4rem+5vw,9rem)] font-bold tabular-figures leading-none", SCORE_COLOR[riskLevel])}>
+              {scores.overall_score ?? 0}
+            </p>
+            <p className={cn("mt-4 text-[1.125rem] font-semibold uppercase tracking-[0.06em]", SCORE_COLOR[riskLevel])}>
+              {riskMeta.label}
+            </p>
+            <p className="mt-6 mx-auto max-w-lg text-[0.9375rem] leading-[1.65] text-[color:var(--color-body)]">
+              {riskMeta.description}
+            </p>
           </div>
         </div>
       </section>
 
       {/* ═══ Gap analysis ══════════════════════════════════════════ */}
       {gaps.length > 0 && (
-        <section className="border-b border-ink">
-          <div className="mx-auto max-w-[1400px] px-6 py-20 md:px-12 md:py-24">
-            <div className="mb-12 md:mb-16">
-              <p className="eyebrow mb-3">Gaps</p>
-              <h2 className="font-display text-[44px] font-light leading-[0.95] tracking-[-0.02em] text-ink md:text-[64px]">
-                Areas below{" "}
-                <span className="italic text-forest">full compliance</span>
-                <span className="text-warm-muted">.</span>
-              </h2>
-              <p className="mt-4 max-w-2xl text-[15px] leading-[1.65] text-warm-muted">
-                {gaps.length} {gaps.length === 1 ? "category" : "categories"} rated
-                below Effective, sorted by severity.
-              </p>
-            </div>
+        <section className="border-b border-[color:var(--color-border)]">
+          <div className="mx-auto max-w-[960px] px-6 py-16 md:py-20">
+            <p className="eyebrow">— Gap Analysis</p>
+            <h2 className="mt-5 text-[clamp(1.75rem,1.25rem+2vw,2.75rem)] font-semibold tracking-[-0.012em] text-[color:var(--color-navy)]">
+              Areas below full compliance.
+            </h2>
+            <p className="mt-3 text-[0.9375rem] text-[color:var(--color-muted)]">
+              {gaps.length} {gaps.length === 1 ? "category" : "categories"} rated
+              below Effective, sorted by severity.
+            </p>
 
-            <div className="space-y-0 border-t border-ink">
-              {gaps.map((gap, idx) => {
+            <div className="mt-12 space-y-6">
+              {gaps.map((gap) => {
                 const opt = RESPONSE_OPTIONS.find((o) => o.value === gap.response);
                 const rec = recommendations[gap.category.id];
+                const borderClass = GAP_BORDER[gap.response] ?? "border-l-[color:var(--color-navy)]";
                 return (
                   <article
                     key={gap.category.id}
-                    className="grid grid-cols-12 gap-4 border-b border-ink/30 py-10 md:gap-10 md:py-12"
+                    className={cn("border border-[color:var(--color-border)] border-l-[3px] rounded-sm p-6 md:p-8", borderClass)}
                   >
-                    <div className="col-span-1">
-                      <span className={cn(
-                        "font-display text-[28px] font-light italic leading-none",
-                        gap.category.weight === 3 ? "text-risk-red" : "text-forest",
+                    <div className="flex items-baseline justify-between gap-4 mb-3">
+                      <p className={cn(
+                        "text-[0.6875rem] font-semibold uppercase tracking-[0.1em]",
+                        gap.response === "not_compliant" ? "text-[#DC2626]" : gap.response === "partial" ? "text-[#D97706]" : "text-[color:var(--color-blue)]",
                       )}>
-                        {String(idx + 1).padStart(2, "0")}
-                      </span>
-                    </div>
-                    <div className="col-span-11 md:col-span-5">
-                      <p className={cn("eyebrow mb-2", gap.category.weight === 3 && "text-risk-red")}>
-                        {gap.category.weight === 3 ? "Critical" : "Important"} ·{" "}
-                        {opt?.label ?? gap.response}
-                      </p>
-                      <h3 className="font-display text-[22px] font-light leading-[1.15] text-ink md:text-[26px]">
-                        {gap.category.title}
-                      </h3>
-                      <p className="mt-2 font-display text-[12px] italic text-warm-muted-soft">
-                        {gap.category.statuteRef}
+                        {gap.category.weight === 3 ? "Critical" : "Important"} · {opt?.label ?? gap.response}
                       </p>
                     </div>
+                    <h3 className="text-[1.125rem] font-semibold text-[color:var(--color-navy)]">
+                      {gap.category.title}
+                    </h3>
+                    <p className="mt-1 text-[0.75rem] text-[color:var(--color-muted)]">
+                      {gap.category.statuteRef}
+                    </p>
                     {rec && (
-                      <div className="col-span-12 md:col-span-6">
-                        <p className="eyebrow mb-3">Remediation</p>
-                        <p className="border-l-2 border-forest pl-5 text-[15px] leading-[1.7] text-ink">
+                      <div className="mt-4 pt-4 border-t border-[color:var(--color-border)]">
+                        <p className="eyebrow mb-2">Remediation</p>
+                        <p className="text-[0.875rem] leading-[1.65] text-[color:var(--color-body)]">
                           {rec}
                         </p>
                       </div>
@@ -248,94 +270,55 @@ export default async function ResultsPage({
         </section>
       )}
 
-      {/* ═══ CTA ════════════════════════════════════════════════════ */}
-      <section className="border-b border-ink bg-forest text-paper">
-        <div className="mx-auto max-w-[1400px] px-6 py-20 md:px-12 md:py-28">
-          <div className="grid gap-10 md:grid-cols-12 md:items-end">
-            <div className="md:col-span-8">
-              <p className="eyebrow mb-6 text-sand">Next steps</p>
-              <h2 className="font-display text-[44px] font-light leading-[0.95] tracking-[-0.025em] text-paper md:text-[80px]">
-                Close the{" "}
-                <span className="italic text-sand">gaps</span>
-                <span className="text-paper/40">.</span>
+      {/* ═══ CTA — the conversion moment ═══════════════════════════ */}
+      <section className="bg-[color:var(--color-navy)] text-white">
+        <div className="mx-auto max-w-[960px] px-6 py-20 md:py-28">
+          <div className="grid gap-10 md:grid-cols-12 md:gap-14 md:items-end">
+            <div className="md:col-span-7">
+              <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-[color:var(--color-blue-light)]">
+                — Next Steps
+              </p>
+              <h2 className="mt-5 text-[clamp(2rem,1.5rem+2vw,3rem)] font-bold text-white">
+                Close the gaps.
               </h2>
+              <p className="mt-4 text-[color:var(--color-blue-light)] leading-[1.65] max-w-md">
+                Your report identifies what needs to change. A thirty-minute
+                consultation with a Kestralis principal is the fastest path
+                to a remediation plan.
+              </p>
             </div>
-            <div className="md:col-span-4">
-              <div className="flex flex-col gap-4">
-                <a
-                  href={CONSULTATION_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group inline-flex items-baseline gap-3 border-b border-sand pb-1 font-display text-[20px] italic text-paper"
-                >
-                  <span>Schedule a consultation</span>
-                  <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
-                </a>
-                <Link
-                  href="/assessment/new"
-                  className="group inline-flex items-baseline gap-3 pb-1 font-display text-[15px] italic text-sand-soft"
-                >
-                  <span className="link-editorial">Start another assessment</span>
-                  <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
-                </Link>
-              </div>
+            <div className="md:col-span-5 md:border-l md:border-white/15 md:pl-10 flex flex-col gap-4">
+              <a
+                href={CONSULTATION_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-ghost-light text-base py-4"
+              >
+                Schedule a Consultation →
+              </a>
+              <Link
+                href="/assessment/new"
+                className="text-center text-[0.8125rem] font-medium text-white/60 hover:text-white transition-colors"
+              >
+                Start another assessment
+              </Link>
             </div>
           </div>
         </div>
       </section>
 
       {/* ═══ Footer ═════════════════════════════════════════════════ */}
-      <footer className="border-t border-sand bg-paper">
-        <div className="mx-auto max-w-[1400px] px-6 py-10 md:px-12">
-          <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
-            <BrandLogo variant="onLight" height={32} asLink={false} />
-            <div className="flex flex-col items-start gap-1 text-xs text-warm-muted md:items-end">
-              <p>A product of Kestralis Group, LLC · <span className="italic">California, 2026</span></p>
-              <p>Not legal advice. Powered by <span className="italic">Asymmetric Marketing</span>.</p>
-            </div>
+      <footer className="bg-[color:var(--color-ink)] text-white/60">
+        <div className="mx-auto max-w-[960px] px-6 py-8">
+          <div className="flex flex-col items-center gap-4 md:flex-row md:justify-between">
+            <BrandLogo variant="onDark" height={20} asLink={false} />
+            <span className="text-[0.75rem]">readystate.now</span>
           </div>
+          <p className="mt-6 text-center text-[0.75rem] text-white/40">
+            A product of Kestralis Group, LLC · California, 2026. Not legal advice.
+          </p>
         </div>
       </footer>
-    </div>
-  );
-}
-
-// ─── Sub-components ──────────────────────────────────────────────────────────
-
-function RiskBand({ level, score }: { level: RiskLevel; score: number }) {
-  const { label, description } = getRiskLabel(level);
-  const tone = level === "low" ? "text-forest" : level === "moderate" ? "text-forest-soft" : level === "high" ? "text-sand-deep" : "text-risk-red";
-  return (
-    <div className="border-2 border-ink p-6 md:p-7">
-      <p className="eyebrow mb-3">Overall</p>
-      <p className={cn("font-display text-[64px] font-light tabular-figures leading-none md:text-[80px]", tone)}>
-        {score}
-      </p>
-      <p className={cn("mt-3 font-display text-[18px] italic", tone)}>
-        {label}<span className="text-warm-muted">.</span>
-      </p>
-      <p className="mt-4 text-[13px] leading-[1.6] text-warm-muted">{description}</p>
-    </div>
-  );
-}
-
-function OverallBlock({ score, riskLevel }: { score: number; riskLevel: RiskLevel }) {
-  const meta = getRiskLabel(riskLevel);
-  const tone = riskLevel === "low" ? "text-forest" : riskLevel === "moderate" ? "text-forest-soft" : riskLevel === "high" ? "text-sand-deep" : "text-risk-red";
-  return (
-    <div className="grid gap-10 md:grid-cols-12 md:gap-16">
-      <div className="md:col-span-6">
-        <p className="eyebrow mb-4">Overall program rating</p>
-        <div className={cn("font-display font-light leading-[0.8] tabular-figures", tone)}>
-          <span className="block text-[200px] tracking-[-0.04em] md:text-[280px]">{score}</span>
-        </div>
-      </div>
-      <div className="md:col-span-5 md:col-start-8">
-        <p className={cn("font-display text-[40px] font-light italic leading-[0.95] md:text-[56px]", tone)}>
-          {meta.label}<span className="text-warm-muted">.</span>
-        </p>
-        <p className="mt-8 text-[15px] leading-[1.7] text-ink md:text-[16px]">{meta.description}</p>
-      </div>
     </div>
   );
 }
@@ -347,17 +330,18 @@ function formatDate(iso: string | null): string {
 
 function NoScoresYet({ assessmentId }: { assessmentId: string }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-paper px-6">
+    <div className="flex min-h-screen items-center justify-center bg-white px-6">
       <div className="max-w-md space-y-5 text-center">
         <p className="eyebrow">Pending</p>
-        <h1 className="font-display text-[40px] font-light leading-[1] text-ink md:text-[56px]">
-          Not yet <span className="italic text-forest">scored</span><span className="text-warm-muted">.</span>
+        <h1 className="text-[clamp(2rem,1.5rem+2vw,3rem)] font-bold text-[color:var(--color-navy)]">
+          Not yet scored.
         </h1>
-        <p className="text-sm leading-[1.65] text-warm-muted">Finish and submit the assessment to generate the report.</p>
-        <div className="flex justify-center gap-6 pt-2">
-          <Link href={`/assessment/new?id=${assessmentId}`} className="group inline-flex items-baseline gap-2 font-display text-[18px] italic text-ink">
-            <span className="link-editorial">Resume assessment</span>
-            <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
+        <p className="text-[0.875rem] leading-[1.65] text-[color:var(--color-muted)]">
+          Finish and submit the assessment to generate the report.
+        </p>
+        <div className="flex justify-center pt-4">
+          <Link href={`/assessment/new?id=${assessmentId}`} className="btn btn-primary">
+            Resume Assessment →
           </Link>
         </div>
       </div>

@@ -16,12 +16,15 @@ interface Props {
   onNotesChange: (n: string) => void;
 }
 
-/**
- * One assessment category per screen. Shows:
- *   1. The sub-requirements as an informational checklist
- *   2. A compliance-level selector (the actual answer)
- *   3. Optional notes area
- */
+/** Color-coded background for selected compliance level */
+const SELECTED_BG: Record<string, string> = {
+  effective: "bg-[color:var(--color-navy)]",
+  implemented: "bg-[color:var(--color-navy)]",
+  partial: "bg-[#D97706]",
+  not_compliant: "bg-[#DC2626]",
+  na: "bg-[color:var(--color-muted)]",
+};
+
 export function CategoryStep({
   category,
   response,
@@ -45,28 +48,28 @@ export function CategoryStep({
         <div className="mb-6 flex items-baseline gap-3">
           <p className="eyebrow">Statutory requirements</p>
           {isCritical && (
-            <span className="font-display text-[12px] italic text-risk-red">
+            <span className="text-[0.75rem] font-semibold uppercase tracking-[0.06em] text-[#DC2626]">
               Critical
             </span>
           )}
         </div>
 
-        <p className="mb-6 text-[14px] leading-[1.65] text-warm-muted">
+        <p className="mb-6 text-[0.875rem] leading-[1.65] text-[color:var(--color-muted)]">
           Consider each of the following when evaluating your
           program&rsquo;s compliance with this area. All sub-requirements
           should be met for a rating of &ldquo;Effective.&rdquo;
         </p>
 
-        <ol className="space-y-4">
+        <ol className="space-y-0">
           {category.subRequirements.map((req, i) => (
             <li
               key={i}
-              className="flex items-start gap-4 border-t border-ink/20 pt-4 first:border-t-0 first:pt-0"
+              className="flex items-start gap-4 border-t border-[color:var(--color-border)] pt-4 pb-4 first:border-t-0 first:pt-0"
             >
-              <span className="mt-0.5 font-mono tabular-figures text-[11px] text-warm-muted-soft">
+              <span className="mt-0.5 tabular-figures text-[0.6875rem] font-medium tracking-[0.08em] text-[color:var(--color-blue)]">
                 {String(i + 1).padStart(2, "0")}
               </span>
-              <p className="flex-1 text-[15px] leading-[1.55] text-ink">
+              <p className="flex-1 text-[0.9375rem] leading-[1.55] text-[color:var(--color-body)]">
                 {req}
               </p>
             </li>
@@ -75,25 +78,25 @@ export function CategoryStep({
 
         {/* Optional notes */}
         {response && (
-          <div className="mt-8 border-t border-ink/20 pt-6">
+          <div className="mt-8 border-t border-[color:var(--color-border)] pt-6">
             {!showNotes ? (
               <button
                 type="button"
                 onClick={() => setShowNotes(true)}
-                className="link-editorial font-display text-[13px] italic text-warm-muted hover:text-ink"
+                className="text-[0.8125rem] font-medium text-[color:var(--color-blue)] hover:text-[color:var(--color-navy)] underline underline-offset-2 transition-colors"
               >
                 + Add evidence or context notes
               </button>
             ) : (
               <div className="space-y-2">
-                <p className="eyebrow">Evidence · optional</p>
+                <p className="form-label">Evidence · optional</p>
                 <textarea
                   value={localNotes}
                   onChange={(e) => setLocalNotes(e.target.value)}
                   onBlur={commitNotes}
                   placeholder="Policy document name, link, relevant evidence, or notes on gaps…"
                   rows={3}
-                  className="w-full resize-y border-b border-ink/30 bg-transparent py-2 font-sans text-[14px] leading-relaxed text-ink placeholder:italic placeholder:text-warm-muted-soft focus:border-ink focus:outline-none"
+                  className="form-input min-h-[100px] resize-y placeholder:italic"
                 />
                 <button
                   type="button"
@@ -101,7 +104,7 @@ export function CategoryStep({
                     commitNotes();
                     if (!localNotes.trim()) setShowNotes(false);
                   }}
-                  className="font-display text-[12px] italic text-warm-muted hover:text-ink"
+                  className="text-[0.75rem] font-medium text-[color:var(--color-muted)] hover:text-[color:var(--color-navy)]"
                 >
                   {localNotes.trim() ? "Save notes" : "Hide"}
                 </button>
@@ -115,42 +118,41 @@ export function CategoryStep({
       <div className="md:col-span-5">
         <p className="eyebrow mb-6">Your evaluation</p>
 
-        <div className="space-y-0">
-          {RESPONSE_OPTIONS.map((opt, i) => {
+        <div className="border border-[color:var(--color-border)] rounded-sm overflow-hidden">
+          {RESPONSE_OPTIONS.map((opt) => {
             const selected = response === opt.value;
+            const bg = selected ? SELECTED_BG[opt.value] ?? "bg-[color:var(--color-navy)]" : "";
             return (
               <button
                 key={opt.value}
                 type="button"
                 onClick={() => onResponseChange(opt.value)}
                 className={cn(
-                  "group w-full border-t border-ink/25 px-5 py-5 text-left transition-colors first:border-t-0",
-                  selected
-                    ? "bg-forest text-paper"
-                    : "hover:bg-paper-deep",
+                  "group w-full border-t border-[color:var(--color-border)] px-5 py-5 text-left transition-all first:border-t-0",
+                  selected ? `${bg} text-white` : "bg-white hover:bg-[color:var(--color-gray-light)]",
                 )}
               >
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p
                       className={cn(
-                        "font-display text-[18px] font-medium italic md:text-[20px]",
-                        selected ? "text-paper" : "text-ink",
+                        "text-[1.0625rem] font-semibold",
+                        selected ? "text-white" : "text-[color:var(--color-navy)]",
                       )}
                     >
                       {opt.label}
                     </p>
                     <p
                       className={cn(
-                        "mt-1 text-[12px] leading-[1.5] md:text-[13px]",
-                        selected ? "text-paper/70" : "text-warm-muted",
+                        "mt-1 text-[0.75rem] leading-[1.5]",
+                        selected ? "text-white/70" : "text-[color:var(--color-muted)]",
                       )}
                     >
                       {opt.description}
                     </p>
                   </div>
                   {selected && (
-                    <span className="mt-1 shrink-0 font-display text-[20px] text-paper">
+                    <span className="mt-0.5 shrink-0 text-[1.125rem] text-white font-bold">
                       ✓
                     </span>
                   )}
@@ -161,9 +163,9 @@ export function CategoryStep({
         </div>
 
         {/* Visual weight indicator */}
-        <div className="mt-6 flex items-baseline justify-between border-t border-ink/20 pt-4">
+        <div className="mt-6 flex items-baseline justify-between border-t border-[color:var(--color-border)] pt-4">
           <p className="eyebrow">Weight</p>
-          <p className="font-display text-[14px] italic text-ink">
+          <p className="text-[0.8125rem] font-medium text-[color:var(--color-navy)]">
             {category.weight === 3
               ? "Critical — citation risk"
               : category.weight === 2

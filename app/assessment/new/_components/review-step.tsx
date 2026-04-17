@@ -20,6 +20,15 @@ interface Props {
 
 const CATEGORIES = getActiveCategories();
 
+/** Color for response label in review summary */
+const RESPONSE_COLOR: Record<string, string> = {
+  effective: "text-[color:var(--color-navy)]",
+  implemented: "text-[color:var(--color-blue)]",
+  partial: "text-[#D97706]",
+  not_compliant: "text-[#DC2626]",
+  na: "text-[color:var(--color-muted)]",
+};
+
 export function ReviewStep({
   responses,
   onJumpToCategory,
@@ -48,12 +57,12 @@ export function ReviewStep({
 
   if (submitted) {
     return (
-      <div className="border-t border-ink py-20 text-center">
+      <div className="border-t-2 border-[color:var(--color-navy)] py-20 text-center">
         <p className="eyebrow mb-4">Submitted</p>
-        <h2 className="font-display text-5xl font-light italic text-forest md:text-6xl">
+        <h2 className="text-[clamp(2rem,1.5rem+2vw,3rem)] font-bold text-[color:var(--color-navy)]">
           Assessment complete.
         </h2>
-        <p className="mt-6 text-[15px] text-warm-muted">
+        <p className="mt-6 text-[0.9375rem] text-[color:var(--color-muted)]">
           Preparing your report…
         </p>
       </div>
@@ -63,7 +72,7 @@ export function ReviewStep({
   return (
     <div className="space-y-16">
       {/* ─── Category summary ───────────────────────────────────── */}
-      <div className="space-y-0">
+      <ol className="border-t-2 border-[color:var(--color-navy)]">
         {CATEGORIES.map((cat, idx) => {
           const resp = responses[cat.id];
           const selected = resp?.response ?? null;
@@ -72,21 +81,21 @@ export function ReviewStep({
             : null;
 
           return (
-            <div
+            <li
               key={cat.id}
-              className="grid grid-cols-12 gap-4 border-t border-ink/30 py-8 md:gap-10 md:py-10"
+              className="grid grid-cols-12 gap-4 border-b border-[color:var(--color-border)] py-6 md:gap-10 md:py-7"
             >
               <div className="col-span-1">
-                <span className="font-display text-[28px] font-light italic leading-none text-forest">
+                <span className="text-[1.5rem] font-bold leading-none text-[color:var(--color-blue-light)] tabular-figures">
                   {String(idx + 1).padStart(2, "0")}
                 </span>
               </div>
               <div className="col-span-7 md:col-span-6">
-                <h3 className="font-display text-[18px] font-light leading-[1.1] text-ink md:text-[22px]">
+                <h3 className="text-[1.0625rem] font-semibold leading-[1.2] text-[color:var(--color-navy)]">
                   {cat.title}
                 </h3>
                 {cat.weight === 3 && (
-                  <p className="mt-1 font-display text-[12px] italic text-risk-red">
+                  <p className="mt-1 text-[0.6875rem] font-semibold uppercase tracking-[0.06em] text-[#DC2626]">
                     Critical
                   </p>
                 )}
@@ -95,16 +104,8 @@ export function ReviewStep({
                 {option ? (
                   <p
                     className={cn(
-                      "font-display text-[18px] italic md:text-[22px]",
-                      selected === "effective"
-                        ? "text-forest"
-                        : selected === "implemented"
-                          ? "text-forest-soft"
-                          : selected === "partial"
-                            ? "text-sand-deep"
-                            : selected === "not_compliant"
-                              ? "text-risk-red"
-                              : "text-warm-muted",
+                      "text-[1.0625rem] font-semibold",
+                      RESPONSE_COLOR[selected!] ?? "text-[color:var(--color-muted)]",
                     )}
                   >
                     {option.label}
@@ -113,39 +114,39 @@ export function ReviewStep({
                   <button
                     type="button"
                     onClick={() => onJumpToCategory(cat.id)}
-                    className="link-editorial font-display text-[14px] italic text-warm-muted hover:text-ink"
+                    className="text-[0.8125rem] font-medium text-[color:var(--color-blue)] hover:text-[color:var(--color-navy)] underline underline-offset-2 transition-colors"
                   >
                     Not evaluated →
                   </button>
                 )}
               </div>
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ol>
 
       {/* ─── Unanswered critical ─────────────────────────────────── */}
       {unansweredCritical.length > 0 && (
-        <div className="border-t border-risk-red/50 bg-risk-red-soft px-8 py-10 md:px-12">
-          <p className="eyebrow mb-3 text-risk-red">
+        <div className="border border-[#DC2626]/30 bg-[#FEE2E2] rounded-sm px-8 py-8">
+          <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.1em] text-[#DC2626] mb-3">
             {unansweredCritical.length} critical{" "}
             {unansweredCritical.length === 1 ? "category" : "categories"}{" "}
             unanswered
           </p>
-          <p className="mb-6 text-[14px] text-risk-red/80">
+          <p className="mb-6 text-[0.875rem] text-[#DC2626]/80">
             Critical categories must be evaluated before submission.
           </p>
           <ul className="space-y-3">
             {unansweredCritical.map((cat) => (
               <li
                 key={cat.id}
-                className="flex items-baseline justify-between gap-4 border-b border-risk-red/20 pb-3"
+                className="flex items-baseline justify-between gap-4 border-b border-[#DC2626]/20 pb-3"
               >
-                <span className="text-[15px] text-ink">{cat.title}</span>
+                <span className="text-[0.9375rem] text-[color:var(--color-body)]">{cat.title}</span>
                 <button
                   type="button"
                   onClick={() => onJumpToCategory(cat.id)}
-                  className="link-editorial shrink-0 font-display text-[13px] italic text-risk-red"
+                  className="shrink-0 text-[0.8125rem] font-medium text-[#DC2626] hover:underline"
                 >
                   Evaluate →
                 </button>
@@ -156,28 +157,17 @@ export function ReviewStep({
       )}
 
       {/* ─── Submit ──────────────────────────────────────────────── */}
-      <div className="border-t border-ink pt-10 text-center">
+      <div className="border-t-2 border-[color:var(--color-navy)] pt-10 text-center">
         <button
           type="button"
           onClick={handleSubmit}
           disabled={!canSubmit || submitting}
-          className={cn(
-            "group inline-flex items-baseline gap-3 font-display text-[36px] font-light italic md:text-[56px]",
-            canSubmit && !submitting
-              ? "text-forest hover:text-forest-deep"
-              : "cursor-not-allowed text-warm-muted-soft",
-          )}
+          className="btn btn-primary text-base px-12 py-4 disabled:opacity-40 disabled:pointer-events-none"
         >
-          <span className="link-editorial">
-            {submitting ? "Submitting…" : "Submit assessment"}
-          </span>
-          <span className="transition-transform duration-300 group-hover:translate-x-2">
-            →
-          </span>
+          {submitting ? "Submitting…" : "Submit Assessment →"}
         </button>
-        <p className="mt-6 text-[13px] text-warm-muted">
-          After submitting, you&rsquo;ll be asked where to send the PDF
-          report.
+        <p className="mt-6 text-[0.8125rem] text-[color:var(--color-muted)]">
+          After submitting, you&rsquo;ll be asked where to send the PDF report.
         </p>
       </div>
     </div>

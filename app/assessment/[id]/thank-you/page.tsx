@@ -28,37 +28,34 @@ export default async function ThankYouPage({ params }: PageProps) {
   const alreadySent = Boolean(assessment.email_sent_at);
 
   return (
-    <div className="min-h-screen bg-paper">
-      <header className="border-b border-ink">
-        <div className="mx-auto flex max-w-[1400px] items-center justify-between px-6 py-5 md:px-12">
-          <BrandLogo variant="onLight" height={36} />
-          <span className="eyebrow">The colophon</span>
+    <div className="min-h-screen bg-white">
+      {/* ═══ Nav ═══════════════════════════════════════════════════════ */}
+      <header className="sticky top-0 z-20 border-b border-[color:var(--color-border)] bg-white">
+        <div className="mx-auto flex max-w-[960px] items-center justify-between px-6 h-16">
+          <BrandLogo variant="onLight" height={24} />
+          <span className="hidden md:block text-[0.6875rem] font-medium uppercase tracking-[0.1em] text-[color:var(--color-muted)]">
+            A Kestralis product
+          </span>
         </div>
       </header>
 
-      <main className="relative">
-        {/* ─── Hero — reverent, centered ──────────────────────────── */}
-        <section className="mx-auto max-w-[1100px] px-6 pt-24 pb-16 text-center md:px-10 md:pt-32 md:pb-20">
-          <p className="eyebrow mb-8">Assessment · complete</p>
+      <main>
+        {/* ─── Hero ──────────────────────────────────────────────── */}
+        <section className="mx-auto max-w-[960px] px-6 pt-20 pb-14 md:pt-28 md:pb-16 text-center">
+          <p className="eyebrow mb-6">— Assessment Complete</p>
 
-          <h1 className="mx-auto max-w-4xl font-display text-[56px] font-light leading-[0.95] tracking-[-0.025em] text-ink md:text-[104px]">
-            Thank you
-            <span className="text-warm-muted">,</span>
-            <br />
-            <span className="italic text-forest">sincerely</span>
-            <span className="text-warm-muted">.</span>
+          <h1 className="text-[clamp(2.5rem,2rem+2.5vw,4rem)] font-bold leading-[1.06] tracking-[-0.02em] text-[color:var(--color-navy)]">
+            Thank you, sincerely.
           </h1>
 
-          {orgName && (
-            <p className="mx-auto mt-10 max-w-xl font-display text-[18px] font-light italic leading-relaxed text-warm-muted md:text-[20px]">
+          {orgName ? (
+            <p className="mx-auto mt-6 max-w-xl text-[1.0625rem] leading-[1.65] text-[color:var(--color-muted)]">
               Your ReadyState report for{" "}
-              <span className="not-italic text-ink">{orgName}</span> is
-              ready. We&rsquo;ll email the PDF to you in the next few
-              minutes.
+              <span className="font-medium text-[color:var(--color-body)]">{orgName}</span> is
+              ready. We&rsquo;ll email the PDF to you in the next few minutes.
             </p>
-          )}
-          {!orgName && (
-            <p className="mx-auto mt-10 max-w-xl font-display text-[18px] font-light italic leading-relaxed text-warm-muted md:text-[20px]">
+          ) : (
+            <p className="mx-auto mt-6 max-w-xl text-[1.0625rem] leading-[1.65] text-[color:var(--color-muted)]">
               Your ReadyState report is ready. We&rsquo;ll email the PDF
               to you in the next few minutes.
             </p>
@@ -66,20 +63,18 @@ export default async function ThankYouPage({ params }: PageProps) {
         </section>
 
         {/* ─── Form section ───────────────────────────────────────── */}
-        <section className="border-y border-ink bg-paper-deep">
-          <div className="mx-auto max-w-[1100px] px-6 py-20 md:px-10 md:py-28">
+        <section className="border-y border-[color:var(--color-border)] bg-[color:var(--color-gray-light)]">
+          <div className="mx-auto max-w-[960px] px-6 py-16 md:py-20">
             <div className="grid gap-12 md:grid-cols-12 md:gap-16">
               <div className="md:col-span-5">
-                <p className="eyebrow mb-4">Delivery</p>
-                <h2 className="font-display text-[40px] font-light leading-[1] tracking-[-0.02em] text-ink md:text-[56px]">
-                  Where shall we{" "}
-                  <span className="italic text-forest">send it</span>
-                  <span className="text-warm-muted">?</span>
+                <p className="eyebrow">— Delivery</p>
+                <h2 className="mt-5 text-[clamp(1.75rem,1.25rem+2vw,2.75rem)] font-semibold tracking-[-0.012em] text-[color:var(--color-navy)]">
+                  Where shall we send it?
                 </h2>
-                <p className="mt-6 max-w-sm text-[14px] leading-[1.65] text-warm-muted md:text-[15px]">
+                <p className="mt-5 text-[0.875rem] leading-[1.65] text-[color:var(--color-muted)]">
                   One delivery only. No marketing list, no follow-up
-                  sequence — just the report, as promised. You can
-                  always come back and run another assessment.
+                  sequence — just the report, as promised. You can always
+                  come back and run another assessment.
                 </p>
               </div>
 
@@ -94,21 +89,16 @@ export default async function ThankYouPage({ params }: PageProps) {
           </div>
         </section>
 
-        <footer className="border-t border-sand bg-paper">
-          <div className="mx-auto max-w-[1400px] px-6 py-10 md:px-12">
-            <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
-              <BrandLogo variant="onLight" height={32} asLink={false} />
-              <div className="flex flex-col items-start gap-1 text-xs text-warm-muted md:items-end">
-                <p>
-                  A product of Kestralis Group, LLC ·{" "}
-                  <span className="italic">California, 2026</span>
-                </p>
-                <p>
-                  Not legal advice. Powered by{" "}
-                  <span className="italic">Asymmetric Marketing</span>.
-                </p>
-              </div>
+        {/* ─── Footer ─────────────────────────────────────────────── */}
+        <footer className="bg-[color:var(--color-ink)] text-white/60">
+          <div className="mx-auto max-w-[960px] px-6 py-8">
+            <div className="flex flex-col items-center gap-4 md:flex-row md:justify-between">
+              <BrandLogo variant="onDark" height={20} asLink={false} />
+              <span className="text-[0.75rem]">readystate.now</span>
             </div>
+            <p className="mt-6 text-center text-[0.75rem] text-white/40">
+              A product of Kestralis Group, LLC · California, 2026. Not legal advice.
+            </p>
           </div>
         </footer>
       </main>

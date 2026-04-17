@@ -19,6 +19,7 @@ import { OrgInfoStep } from "./org-info-step";
 import { CategoryStep } from "./category-step";
 import { ReviewStep } from "./review-step";
 import { SaveForLaterButton } from "./save-for-later-button";
+import { Progress } from "@/components/ui/progress";
 
 export interface WizardInitialAssessment {
   id: string;
@@ -176,7 +177,7 @@ export function Wizard({
   const canAdvance = useMemo(() => {
     if (currentScreen.kind !== "category") return true;
     const cat = currentScreen.category;
-    if (!cat || cat.weight < 3) return true; // non-critical categories can be skipped
+    if (!cat || cat.weight < 3) return true;
     return Boolean(responses[cat.id]?.response);
   }, [currentScreen, responses]);
 
@@ -205,86 +206,64 @@ export function Wizard({
 
   return (
     <div className="space-y-10">
-      {/* ═══ Editorial page header ══════════════════════════════════ */}
+      {/* ═══ Step indicator + header ══════════════════════════════════ */}
       <header className="space-y-6">
-        <div className="flex items-baseline justify-between border-b border-ink pb-3">
-          <p className="eyebrow">
-            <span className="font-mono tabular-figures text-ink">
-              {String(screenIndex + 1).padStart(2, "0")}
-            </span>
-            <span className="text-warm-muted-soft">
-              {" / "}
-              {String(SCREENS.length).padStart(2, "0")}
-            </span>
-          </p>
-          {currentScreen.kind === "category" && (
-            <p className="eyebrow hidden md:block">SB 553 Compliance</p>
-          )}
-        </div>
-
-        {currentScreen.kind === "org-info" ? (
-          <div>
-            <p className="eyebrow mb-3">Begin</p>
-            <h1 className="font-display text-5xl font-light leading-[0.95] tracking-[-0.02em] text-ink md:text-[64px]">
-              Begin the{" "}
-              <span className="italic text-forest">assessment</span>
-              <span className="text-warm-muted">.</span>
-            </h1>
-            <p className="mt-5 max-w-xl text-[15px] leading-[1.65] text-warm-muted">
-              Tell us about the organization and the specific site
-              being assessed. Each assessment is scoped to one site.
-            </p>
-          </div>
-        ) : currentScreen.kind === "review" ? (
-          <div>
-            <p className="eyebrow mb-3">Final review</p>
-            <h1 className="font-display text-5xl font-light leading-[0.95] tracking-[-0.02em] text-ink md:text-[64px]">
-              Review &amp;{" "}
-              <span className="italic text-forest">submit</span>
-              <span className="text-warm-muted">.</span>
-            </h1>
-          </div>
-        ) : (
-          <div>
-            {currentScreen.category && (
-              <p className="eyebrow mb-3">
-                {currentScreen.category.statuteRef}
-              </p>
-            )}
-            <h1 className="mt-2 font-display text-[40px] font-light leading-[0.98] tracking-[-0.02em] text-ink md:text-[56px]">
-              {currentScreen.label}
-            </h1>
-            {currentScreen.category && (
-              <p className="mt-4 max-w-2xl text-[15px] leading-[1.65] text-warm-muted">
-                {currentScreen.category.description}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Progress */}
+        {/* Progress bar */}
         {currentScreen.kind !== "org-info" && (
-          <div className="space-y-2 pt-4">
+          <div className="space-y-2">
             <div className="flex items-baseline justify-between">
-              <p className="eyebrow">Progress</p>
-              <p className="font-mono tabular-figures text-[13px] text-ink">
-                {String(progress.answered).padStart(2, "0")}
-                <span className="text-warm-muted-soft">
-                  {" / "}
-                  {String(progress.total).padStart(2, "0")}
+              <p className="text-[0.6875rem] font-medium uppercase tracking-[0.06em] text-[color:var(--color-muted)]">
+                Step {screenIndex + 1} of {SCREENS.length}
+              </p>
+              <p className="tabular-figures text-[0.8125rem] font-medium text-[color:var(--color-navy)]">
+                {progress.answered}
+                <span className="text-[color:var(--color-muted)]">
+                  {" / "}{progress.total}
                 </span>
               </p>
             </div>
-            <div className="relative h-px w-full bg-sand">
-              <div
-                className="absolute inset-y-0 left-0 bg-forest transition-[width] duration-500"
-                style={{
-                  width: `${(progress.answered / progress.total) * 100}%`,
-                }}
-              />
-            </div>
+            <Progress value={(progress.answered / progress.total) * 100} />
           </div>
         )}
+
+        {/* Section header */}
+        <div className="border-t-2 border-[color:var(--color-navy)] pt-6">
+          {currentScreen.kind === "org-info" ? (
+            <div>
+              <p className="eyebrow">— Begin</p>
+              <h1 className="mt-5 text-[clamp(1.75rem,1.25rem+2vw,2.75rem)] font-semibold tracking-[-0.012em] text-[color:var(--color-navy)]">
+                Begin the assessment.
+              </h1>
+              <p className="mt-4 max-w-xl text-[0.9375rem] leading-[1.65] text-[color:var(--color-muted)]">
+                Tell us about the organization and the specific site
+                being assessed. Each assessment is scoped to one site.
+              </p>
+            </div>
+          ) : currentScreen.kind === "review" ? (
+            <div>
+              <p className="eyebrow">— Final Review</p>
+              <h1 className="mt-5 text-[clamp(1.75rem,1.25rem+2vw,2.75rem)] font-semibold tracking-[-0.012em] text-[color:var(--color-navy)]">
+                Review &amp; submit.
+              </h1>
+            </div>
+          ) : (
+            <div>
+              {currentScreen.category && (
+                <p className="eyebrow">
+                  — {String(screenIndex).padStart(2, "0")} · {currentScreen.category.statuteRef}
+                </p>
+              )}
+              <h1 className="mt-5 text-[clamp(1.75rem,1.5rem+1vw,2.25rem)] font-bold tracking-[-0.012em] text-[color:var(--color-navy)]">
+                {currentScreen.label}
+              </h1>
+              {currentScreen.category && (
+                <p className="mt-4 max-w-2xl text-[0.9375rem] leading-[1.65] text-[color:var(--color-muted)]">
+                  {currentScreen.category.description}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
       </header>
 
       {/* ═══ Content ══════════════════════════════════════════════════ */}
@@ -319,20 +298,17 @@ export function Wizard({
 
       {/* ═══ Footer nav ══════════════════════════════════════════════ */}
       {currentScreen.kind !== "org-info" && (
-        <div className="flex items-center justify-between gap-3 border-t border-ink pt-8">
+        <div className="flex items-center justify-between gap-3 border-t border-[color:var(--color-border)] pt-8">
           <button
             type="button"
             onClick={handleBack}
             disabled={screenIndex === 0}
-            className="group flex items-baseline gap-2 text-[15px] text-ink disabled:cursor-not-allowed disabled:text-warm-muted-soft"
+            className="btn btn-secondary text-xs px-5 py-2.5 disabled:opacity-40 disabled:pointer-events-none"
           >
-            <span className="transition-transform duration-300 group-hover:-translate-x-1">
-              ←
-            </span>
-            <span className="link-editorial font-display italic">Back</span>
+            ← Back
           </button>
 
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-6">
             {assessmentId && (
               <SaveForLaterButton assessmentId={assessmentId} />
             )}
@@ -340,7 +316,7 @@ export function Wizard({
             {currentScreen.kind !== "review" && (
               <>
                 {!canAdvance && (
-                  <span className="hidden font-display text-[13px] italic text-warm-muted md:inline">
+                  <span className="hidden text-[0.8125rem] text-[color:var(--color-muted)] md:inline">
                     Required — select a compliance level to continue
                   </span>
                 )}
@@ -348,14 +324,9 @@ export function Wizard({
                   type="button"
                   onClick={handleNext}
                   disabled={!canAdvance}
-                  className="group flex items-baseline gap-2 text-[15px] text-ink disabled:cursor-not-allowed disabled:text-warm-muted-soft"
+                  className="btn btn-primary text-xs px-5 py-2.5 disabled:opacity-40 disabled:pointer-events-none"
                 >
-                  <span className="link-editorial font-display italic">
-                    Continue
-                  </span>
-                  <span className="transition-transform duration-300 group-hover:translate-x-1">
-                    →
-                  </span>
+                  Continue →
                 </button>
               </>
             )}

@@ -4,44 +4,56 @@
 
 @layer base {
   :root {
-    /* ─── ReadyState editorial palette (HSL for shadcn token compat) ─── */
-    /* paper #f5f4ed */
-    --background: 51 28% 95%;
-    /* ink #0c0c0a */
-    --foreground: 48 11% 5%;
+    /* ─── Kestralis brand palette ─── */
+    --color-ink:         #000000;
+    --color-navy:        #172D99;
+    --color-blue:        #0B5ED6;
+    --color-blue-light:  #C5E6F9;
+    --color-gray-light:  #EAEBEC;
+    --color-paper:       #FFFFFF;
 
-    /* card = slightly lifted paper */
-    --card: 51 30% 97%;
-    --card-foreground: 48 11% 5%;
+    --color-navy-900:    #0E1E6B;
+    --color-body:        #1F242B;
+    --color-muted:       #6B7280;
+    --color-border:      #D8DADC;
+    --color-border-dark: rgba(255,255,255,0.15);
 
-    --popover: 51 30% 97%;
-    --popover-foreground: 48 11% 5%;
+    /* ─── Motion ─── */
+    --ease-out:  cubic-bezier(0.25, 0.1, 0.25, 1);
+    --dur-fast:  180ms;
+    --dur-base:  280ms;
+    --dur-slow:  550ms;
 
-    /* primary = brand navy #0D1B2E */
-    --primary: 213 57% 11%;
-    --primary-foreground: 51 28% 95%;
+    /* ─── shadcn token compat (HSL) ─── */
+    --background: 0 0% 100%;
+    --foreground: 216 16% 15%;
 
-    /* secondary = sand-soft */
-    --secondary: 47 36% 83%;
-    --secondary-foreground: 48 11% 5%;
+    --card: 0 0% 100%;
+    --card-foreground: 216 16% 15%;
 
-    /* muted = warm muted soft */
-    --muted: 47 14% 88%;
-    --muted-foreground: 45 9% 39%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 216 16% 15%;
 
-    --accent: 47 36% 83%;
-    --accent-foreground: 48 11% 5%;
+    --primary: 231 73% 35%;
+    --primary-foreground: 0 0% 100%;
 
-    /* risk-red #a02020 */
-    --destructive: 0 67% 38%;
-    --destructive-foreground: 51 28% 95%;
+    --secondary: 220 9% 93%;
+    --secondary-foreground: 216 16% 15%;
 
-    /* sand for borders / inputs */
-    --border: 47 20% 82%;
-    --input: 47 20% 82%;
-    --ring: 213 57% 11%;
+    --muted: 220 9% 93%;
+    --muted-foreground: 220 5% 47%;
 
-    --radius: 0.25rem; /* sharper, editorial */
+    --accent: 220 9% 93%;
+    --accent-foreground: 216 16% 15%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 9% 86%;
+    --input: 220 9% 86%;
+    --ring: 231 73% 35%;
+
+    --radius: 2px;
   }
 }
 
@@ -57,78 +69,158 @@
   }
 
   body {
-    @apply bg-paper text-ink;
-    font-family: var(--font-geist-sans), system-ui, sans-serif;
-    font-feature-settings: "ss01", "kern", "liga", "calt";
+    background: var(--color-paper);
+    color: var(--color-body);
+    font-family: var(--font-sans), system-ui, sans-serif;
+    font-feature-settings: "kern", "liga", "calt";
+    line-height: 1.65;
   }
 
-  /* Display type defaults — Fraunces with optical size tuning */
-  .font-display {
-    font-family: var(--font-fraunces), Georgia, serif;
-    font-feature-settings: "ss01", "kern", "liga", "calt";
-    font-optical-sizing: auto;
-  }
-
-  /* Subtle selection color in the accent */
   ::selection {
-    background: #0d1b2e;
-    color: #f5f4ed;
+    background: var(--color-navy);
+    color: var(--color-paper);
+  }
+}
+
+@layer components {
+  /* ─── Eyebrow labels ─── */
+  .eyebrow {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--color-blue);
+  }
+
+  /* ─── Button system ─── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.85rem 1.75rem;
+    border-radius: 2px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border: 1.5px solid transparent;
+    transition: all var(--dur-fast) var(--ease-out);
+    cursor: pointer;
+  }
+
+  .btn-primary {
+    background: var(--color-navy);
+    color: var(--color-paper);
+    border-color: var(--color-navy);
+  }
+  .btn-primary:hover {
+    background: var(--color-navy-900);
+    border-color: var(--color-navy-900);
+    box-shadow: 0 8px 28px -8px rgba(23,45,153,0.45);
+    transform: translateY(-1px);
+  }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--color-navy);
+    border-color: var(--color-navy);
+  }
+  .btn-secondary:hover {
+    background: var(--color-navy);
+    color: var(--color-paper);
+  }
+
+  .btn-ghost-light {
+    background: transparent;
+    color: white;
+    border-color: rgba(255,255,255,0.4);
+  }
+  .btn-ghost-light:hover {
+    background: white;
+    color: var(--color-navy);
+    border-color: white;
+  }
+
+  /* ─── Form elements ─── */
+  .form-input {
+    width: 100%;
+    background: white;
+    border: 1.5px solid var(--color-border);
+    border-radius: 2px;
+    padding: 0.75rem 1rem;
+    font-family: var(--font-sans), system-ui, sans-serif;
+    font-size: 0.9375rem;
+    color: var(--color-ink);
+    transition: border-color var(--dur-fast) var(--ease-out);
+  }
+  .form-input:focus {
+    border-color: var(--color-navy);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(23,45,153,0.12);
+  }
+  .form-input:invalid:not(:placeholder-shown) {
+    border-color: #DC2626;
+  }
+
+  .form-label {
+    display: block;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-navy);
+    margin-bottom: 0.5rem;
+  }
+
+  .form-helper {
+    font-size: 0.8125rem;
+    color: var(--color-muted);
+    margin-bottom: 0.5rem;
+  }
+
+  /* ─── Rating group (assessment compliance selector) ─── */
+  .rating-group {
+    display: inline-flex;
+    border: 1.5px solid var(--color-border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .rating-group button {
+    padding: 0.625rem 1.25rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: white;
+    color: var(--color-muted);
+    border-right: 1px solid var(--color-border);
+    transition: all var(--dur-fast) var(--ease-out);
+    cursor: pointer;
+  }
+  .rating-group button:last-child { border-right: none; }
+  .rating-group button:hover { background: var(--color-gray-light); }
+  .rating-group button[data-selected="true"] {
+    background: var(--color-navy);
+    color: white;
+    border-color: var(--color-navy);
+  }
+  .rating-group button[data-severity="not_compliant"][data-selected="true"] {
+    background: #DC2626;
+    border-color: #DC2626;
+  }
+  .rating-group button[data-severity="partial"][data-selected="true"] {
+    background: #D97706;
+    border-color: #D97706;
+  }
+  .rating-group button[data-severity="na"][data-selected="true"] {
+    background: var(--color-muted);
+    border-color: var(--color-muted);
   }
 }
 
 @layer utilities {
-  /* Hand-drawn rule line — for editorial section dividers */
-  .rule-ink {
-    @apply h-px w-full origin-left bg-ink;
-  }
-
-  .rule-sand {
-    @apply h-px w-full origin-left bg-sand;
-  }
-
-  /* Numeric tabular figures for scores */
   .tabular-figures {
     font-variant-numeric: tabular-nums;
-  }
-
-  /* Small caps eyebrow */
-  .eyebrow {
-    @apply text-[11px] font-semibold uppercase tracking-[0.22em] text-warm-muted;
-  }
-
-  /* Editorial drop cap for first paragraph */
-  .first-letter-drop::first-letter {
-    font-family: var(--font-fraunces), Georgia, serif;
-    font-size: 4rem;
-    line-height: 0.85;
-    float: left;
-    margin-right: 0.1em;
-    margin-top: 0.05em;
-    color: #0d1b2e;
-    font-style: italic;
-    font-weight: 500;
-  }
-
-  /* Masked underline that draws in on hover */
-  .link-editorial {
-    background-image: linear-gradient(to right, currentColor 0%, currentColor 100%);
-    background-position: 0 100%;
-    background-repeat: no-repeat;
-    background-size: 100% 1px;
-    transition: background-size 300ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  .link-editorial:hover {
-    background-size: 100% 2px;
-  }
-
-  /* Grain overlay — subtle texture for paper backgrounds */
-  .grain::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    opacity: 0.04;
-    mix-blend-mode: multiply;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
 }

@@ -17,14 +17,14 @@ export const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
         aria-valuemax={100}
         aria-valuenow={clamped}
         className={cn(
-          "relative h-2 w-full overflow-hidden rounded-full bg-secondary",
+          "relative h-[3px] w-full overflow-hidden bg-[color:var(--color-gray-light)]",
           className,
         )}
         {...props}
       >
         <div
-          className="h-full w-full flex-1 bg-primary transition-all"
-          style={{ transform: `translateX(-${100 - clamped}%)` }}
+          className="h-full bg-[color:var(--color-blue)] transition-all duration-[350ms]"
+          style={{ width: `${clamped}%`, transition: "width 350ms var(--ease-out)" }}
         />
       </div>
     );

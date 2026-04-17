@@ -1,38 +1,13 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
-import { Fraunces } from "next/font/google";
+import { Barlow } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-// ─── Typography ────────────────────────────────────────────────────────────
-//
-// Display: Fraunces — variable serif with opsz, SOFT, WONK axes. Killer
-// italic, scales cleanly from body size to hero. Used sparingly for
-// display headlines, pull quotes, and the KESTRALIS wordmark.
-//
-// Body: Geist Sans — refined, characterful sans. Used for all body copy,
-// UI chrome, and navigation.
-//
-// Mono: Geist Mono — used for question IDs, score numerics, and metadata.
-
-const fraunces = Fraunces({
+const barlow = Barlow({
   subsets: ["latin"],
-  variable: "--font-fraunces",
-  display: "swap",
-  style: ["normal", "italic"],
   weight: ["300", "400", "500", "600", "700"],
-});
-
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
-});
-
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
+  display: "swap",
+  variable: "--font-sans",
 });
 
 export const metadata: Metadata = {
@@ -71,19 +46,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${fraunces.variable} ${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${barlow.variable} antialiased`}>
         {children}
         <Toaster
           richColors
-          position="top-right"
+          position="bottom-right"
           toastOptions={{
             classNames: {
               toast:
-                "font-sans border border-sand bg-paper text-ink shadow-none",
-              title: "font-sans font-medium text-ink",
-              description: "text-warm-muted",
+                "font-sans border border-[color:var(--color-border)] bg-[color:var(--color-navy)] text-white shadow-none",
+              title: "font-sans font-medium text-white",
+              description: "text-white/70",
             },
           }}
         />

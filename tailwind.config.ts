@@ -10,41 +10,45 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        display: ["var(--font-fraunces)", "Georgia", "serif"],
-        sans: ["var(--font-geist-sans)", "system-ui", "sans-serif"],
-        mono: ["var(--font-geist-mono)", "ui-monospace", "monospace"],
+        sans: ["var(--font-sans)", "system-ui", "sans-serif"],
       },
       colors: {
-        // ─── ReadyState editorial palette ─────────────────────────────
-        paper: "#f5f4ed",
-        "paper-deep": "#eeece2",
-        ink: "#0c0c0a",
-        "ink-soft": "#1a1915",
-        // Kept the "forest" name for class-level compatibility, but these
-        // are the ReadyState brand navy values. Every text-forest /
-        // border-forest / bg-forest class in the app picks up navy now.
-        forest: {
-          DEFAULT: "#0D1B2E",
-          deep: "#081221",
-          soft: "#2A3A55",
+        // ─── Kestralis brand palette ─────────────────────────────
+        navy: {
+          DEFAULT: "#172D99",
+          900: "#0E1E6B",
         },
-        // Brand amber — used for accents and the logo lockup itself.
+        blue: {
+          DEFAULT: "#0B5ED6",
+          light: "#C5E6F9",
+        },
+        paper: "#FFFFFF",
+        ink: "#000000",
+        body: "#1F242B",
+        "gray-light": "#EAEBEC",
+        "warm-muted": "#6B7280",
+
+        // Legacy aliases for components using old names
+        forest: {
+          DEFAULT: "#172D99",
+          deep: "#0E1E6B",
+          soft: "#0B5ED6",
+        },
         amber: {
-          DEFAULT: "#F5A623",
-          soft: "#FFE0A8",
-          deep: "#C88418",
+          DEFAULT: "#0B5ED6",
+          soft: "#C5E6F9",
+          deep: "#0E1E6B",
         },
         sand: {
-          DEFAULT: "#c9bd9c",
-          soft: "#e4dcc2",
-          deep: "#a89a6e",
+          DEFAULT: "#D8DADC",
+          soft: "#EAEBEC",
+          deep: "#6B7280",
         },
-        "risk-red": "#a02020",
-        "risk-red-soft": "#f4e7e7",
-        "warm-muted": "#6b6758",
-        "warm-muted-soft": "#9a9688",
+        "risk-red": "#DC2626",
+        "risk-red-soft": "#FEE2E2",
+        "warm-muted-soft": "#9CA3AF",
 
-        // ─── shadcn tokens mapped to editorial palette ─────────────────
+        // ─── shadcn tokens ─────────────────
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -81,8 +85,8 @@ const config: Config = {
       },
       borderRadius: {
         lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        md: "calc(var(--radius) - 1px)",
+        sm: "1px",
       },
       keyframes: {
         "accordion-down": {

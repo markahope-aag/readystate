@@ -2,18 +2,22 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 const variantClasses = {
-  default: "bg-primary text-primary-foreground hover:bg-primary/90",
+  default:
+    "bg-[color:var(--color-navy)] text-white border-[color:var(--color-navy)] hover:bg-[color:var(--color-navy-900)] hover:border-[color:var(--color-navy-900)] hover:shadow-[0_8px_28px_-8px_rgba(23,45,153,0.45)] hover:-translate-y-px",
   outline:
-    "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-  ghost: "hover:bg-accent hover:text-accent-foreground",
+    "bg-transparent text-[color:var(--color-navy)] border-[color:var(--color-navy)] hover:bg-[color:var(--color-navy)] hover:text-white",
+  ghost:
+    "bg-transparent text-[color:var(--color-navy)] border-transparent hover:bg-[color:var(--color-gray-light)]",
   destructive:
-    "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+    "bg-[#DC2626] text-white border-[#DC2626] hover:bg-[#B91C1C]",
+  "ghost-light":
+    "bg-transparent text-white border-white/40 hover:bg-white hover:text-[color:var(--color-navy)] hover:border-white",
 } as const;
 
 const sizeClasses = {
-  default: "h-10 px-4 py-2",
-  sm: "h-9 rounded-md px-3",
-  lg: "h-11 rounded-md px-6 text-base",
+  default: "px-7 py-[0.85rem]",
+  sm: "px-4 py-2 text-xs",
+  lg: "px-8 py-4 text-sm",
 } as const;
 
 export interface ButtonProps
@@ -27,7 +31,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     <button
       ref={ref}
       className={cn(
-        "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+        "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-sm text-[0.8125rem] font-medium uppercase tracking-[0.06em] border-[1.5px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-navy)] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
         variantClasses[variant],
         sizeClasses[size],
         className,
