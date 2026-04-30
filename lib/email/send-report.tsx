@@ -21,7 +21,7 @@ import {
   type ReportScores,
   type ReportGap,
 } from "@/lib/pdf/AssessmentReport";
-import { getRiskLabel } from "@/lib/assessment/scoring";
+import { getRiskLabel, type SectionScore } from "@/lib/assessment/scoring";
 
 export interface SendReportParams {
   to: string;
@@ -29,6 +29,8 @@ export interface SendReportParams {
   assessment: ReportAssessment;
   organization: ReportOrganization | null;
   scores: ReportScores;
+  sectionScores: SectionScore[];
+  sectionNotes: Record<string, string>;
   gaps: ReportGap[];
 }
 
@@ -58,6 +60,8 @@ export async function sendReportEmail(
         assessment={params.assessment}
         organization={params.organization}
         scores={params.scores}
+        sectionScores={params.sectionScores}
+        sectionNotes={params.sectionNotes}
         gaps={params.gaps}
         generatedAt={new Date()}
       />,
@@ -180,10 +184,10 @@ function buildEmailHtml(p: EmailBodyParams): string {
       <p><strong>${escapeHtml(p.riskLabel)}.</strong> ${escapeHtml(p.riskDescription)}</p>
 
       <p>
-        The attached report breaks down your score by section (SB 553 Statutory Compliance,
-        ASIS Professional Standard, and Site Hazard Profile), lists every gap that needs
-        attention${p.gapCount > 0 ? ` (${p.gapCount} in total)` : ""}, and provides concrete
-        remediation guidance for each critical finding.
+        The attached report breaks down your score across the four sections of the
+        assessment — The Plan, The People, The Process, and The Proof — lists every
+        gap that needs attention${p.gapCount > 0 ? ` (${p.gapCount} in total)` : ""},
+        and provides concrete remediation guidance for each critical finding.
       </p>
 
       <p>
@@ -220,7 +224,7 @@ Your full PDF report is attached to this email.
 Overall Program Rating: ${p.overallScore}/100 — ${p.riskLabel}
 ${p.riskDescription}
 
-The attached report breaks down your score by section (SB 553 Statutory Compliance, ASIS Professional Standard, and Site Hazard Profile), lists every gap that needs attention${p.gapCount > 0 ? ` (${p.gapCount} in total)` : ""}, and provides concrete remediation guidance for each critical finding.
+The attached report breaks down your score across the four sections of the assessment — The Plan, The People, The Process, and The Proof — lists every gap that needs attention${p.gapCount > 0 ? ` (${p.gapCount} in total)` : ""}, and provides concrete remediation guidance for each critical finding.
 
 If you'd like to discuss the findings or start closing the gaps, we offer a free consultation:
 https://meetings.hubspot.com/mark-hope2

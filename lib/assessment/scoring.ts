@@ -1,35 +1,60 @@
 /**
- * ReadyState — SB 553 Assessment Scoring Engine (v2)
+ * ReadyState — SB 553 Assessment Scoring Engine (v3)
  *
- * Simplified from the v1 three-section model (SB 553 / ASIS / Hazard with
- * 50/30/20 weighting) to a single SB 553 compliance score across 10
- * statutory categories.
+ * Per-question Y / N / Partial / N/A across four sections.
  *
- * Scoring rules:
- *   Per category: max = weight * 4 (full marks for "effective")
- *     effective     = weight * 4
- *     implemented   = weight * 3
- *     partial       = weight * 2
- *     not_compliant = 0
- *     na            = excluded from both earned and max
- *   Overall score = round(earned / max * 100), 0–100 integer
- *   Risk level: 0–39 critical, 40–59 high, 60–79 moderate, 80–100 low
+ * Scoring rules (v3):
+ *   Per question max = weight (so a w3 Y is worth 3 of 3, a w1 Y is 1 of 1)
+ *     yes      → weight × 1.0 earned
+ *     partial  → weight × 0.5 earned
+ *     no       → 0 earned, weight max
+ *     na       → 0 earned, 0 max (excluded)
+ *     skipped  → 0 earned, 0 max (excluded; surfaced separately)
+ *   Section score = round(section_earned / section_max × 100), or null if all N/A
+ *   Overall score = round(total_earned / total_max × 100)
+ *   Risk bands: 0–39 critical, 40–59 high, 60–79 moderate, 80–100 low
  *
- * The bands are tighter than v1 because the v2 selector gives more
- * resolution (5 levels vs 4), so "partial" across the board lands at 50
- * which is correctly "high risk" rather than appearing moderate.
+ * v2 BACKWARD COMPAT: completed v2 assessments persisted their scores in
+ * `assessment_scores`. We keep `computeScoresLegacy` so historical results
+ * pages still render the per-category breakdown from the original IDs.
  */
 
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import {
-  categories as defaultCategories,
-  type Category,
+  detectModel,
+  getActiveSections,
+  isSectionNotesId,
+  legacyCategories,
+  type LegacyCategory,
+  type Question,
   type ResponseValue,
+  type Section,
 } from "./questions";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type RiskLevel = "critical" | "high" | "moderate" | "low";
+
+export interface SectionScore {
+  sectionId: Section["id"];
+  title: string;
+  earned: number;
+  max: number;
+  /** 0–100 for this section, or null if no scoreable questions */
+  score: number | null;
+  answeredCount: number;
+  totalQuestions: number;
+}
+
+export interface QuestionScore {
+  questionId: string;
+  sectionId: Section["id"];
+  prompt: string;
+  weight: 1 | 2 | 3;
+  response: ResponseValue | null;
+  earned: number;
+  max: number;
+}
 
 export interface ScoreResult {
   overallScore: number;
@@ -39,19 +64,8 @@ export interface ScoreResult {
   answeredCount: number;
   naCount: number;
   skippedCount: number;
-  /** Per-category breakdown */
-  categoryScores: CategoryScore[];
-}
-
-export interface CategoryScore {
-  categoryId: string;
-  title: string;
-  weight: 1 | 2 | 3;
-  response: ResponseValue | null;
-  earned: number;
-  max: number;
-  /** 0–100 for this category alone, or null if N/A/skipped */
-  score: number | null;
+  sectionScores: SectionScore[];
+  questionScores: QuestionScore[];
 }
 
 export interface ResponseRow {
@@ -143,16 +157,10 @@ export function getRiskLabel(level: RiskLevel): {
   }
 }
 
-// ─── Pure scoring ─────────────────────────────────────────────────────────────
+// ─── Pure scoring (v3) ───────────────────────────────────────────────────────
 
 function isResponseValue(v: string): v is ResponseValue {
-  return (
-    v === "effective" ||
-    v === "implemented" ||
-    v === "partial" ||
-    v === "not_compliant" ||
-    v === "na"
-  );
+  return v === "yes" || v === "no" || v === "partial" || v === "na";
 }
 
 function earnedForResponse(
@@ -160,35 +168,31 @@ function earnedForResponse(
   weight: number,
 ): number {
   switch (response) {
-    case "effective":
-      return weight * 4;
-    case "implemented":
-      return weight * 3;
+    case "yes":
+      return weight;
     case "partial":
-      return weight * 2;
-    case "not_compliant":
-      return 0;
+      return weight * 0.5;
+    case "no":
     case "na":
-      return 0; // excluded from max too
+      return 0;
   }
 }
 
 /**
- * Pure scoring function. Given response rows and category bank, returns
- * overall score + per-category breakdown. No side effects.
+ * Pure scoring function. Given response rows + a section bank, returns
+ * overall score, per-section breakdown, and per-question detail.
  */
 export function computeScores(
   responses: ResponseRow[],
-  categoryBank: Category[] = defaultCategories,
+  sectionBank: Section[] = getActiveSections(),
 ): ScoreResult {
   const responseMap = new Map<string, ResponseValue>();
   for (const r of responses) {
+    if (isSectionNotesId(r.question_id)) continue; // skip notes pseudo-rows
     if (isResponseValue(r.response)) {
       responseMap.set(r.question_id, r.response);
     }
   }
-
-  const activeCategories = categoryBank.filter((c) => !c.deprecated);
 
   let totalEarned = 0;
   let totalMax = 0;
@@ -196,51 +200,79 @@ export function computeScores(
   let naCount = 0;
   let skippedCount = 0;
 
-  const categoryScores: CategoryScore[] = activeCategories.map((cat) => {
-    const response = responseMap.get(cat.id) ?? null;
-    const catMax = cat.weight * 4;
+  const sectionScores: SectionScore[] = [];
+  const questionScores: QuestionScore[] = [];
 
-    if (!response) {
-      skippedCount++;
-      return {
-        categoryId: cat.id,
-        title: cat.title,
-        weight: cat.weight,
-        response: null,
-        earned: 0,
-        max: catMax,
-        score: null,
-      };
-    }
+  for (const section of sectionBank) {
+    let sectionEarned = 0;
+    let sectionMax = 0;
+    let sectionAnswered = 0;
+    const activeQuestions = section.questions.filter((q) => !q.deprecated);
 
-    if (response === "na") {
-      naCount++;
-      return {
-        categoryId: cat.id,
-        title: cat.title,
-        weight: cat.weight,
+    for (const q of activeQuestions) {
+      const response = responseMap.get(q.id) ?? null;
+      const qMax = q.weight;
+
+      if (!response) {
+        skippedCount++;
+        questionScores.push({
+          questionId: q.id,
+          sectionId: section.id,
+          prompt: q.prompt,
+          weight: q.weight,
+          response: null,
+          earned: 0,
+          max: qMax,
+        });
+        continue;
+      }
+
+      if (response === "na") {
+        naCount++;
+        questionScores.push({
+          questionId: q.id,
+          sectionId: section.id,
+          prompt: q.prompt,
+          weight: q.weight,
+          response,
+          earned: 0,
+          max: 0,
+        });
+        continue;
+      }
+
+      const earned = earnedForResponse(response, q.weight);
+      sectionEarned += earned;
+      sectionMax += qMax;
+      totalEarned += earned;
+      totalMax += qMax;
+      sectionAnswered++;
+      answeredCount++;
+
+      questionScores.push({
+        questionId: q.id,
+        sectionId: section.id,
+        prompt: q.prompt,
+        weight: q.weight,
         response,
-        earned: 0,
-        max: 0,
-        score: null,
-      };
+        earned,
+        max: qMax,
+      });
     }
 
-    answeredCount++;
-    const earned = earnedForResponse(response, cat.weight);
-    totalEarned += earned;
-    totalMax += catMax;
-
-    return {
-      categoryId: cat.id,
-      title: cat.title,
-      weight: cat.weight,
-      response,
-      earned,
-      max: catMax,
-      score: Math.round((earned / catMax) * 100),
-    };
-  });
+    sectionScores.push({
+      sectionId: section.id,
+      title: section.title,
+      earned: sectionEarned,
+      max: sectionMax,
+      score:
+        sectionMax === 0
+          ? null
+          : Math.round((sectionEarned / sectionMax) * 100),
+      answeredCount: sectionAnswered,
+      totalQuestions: activeQuestions.length,
+    });
+  }
 
   const overallScore =
     totalMax === 0 ? 100 : Math.round((totalEarned / totalMax) * 100);
@@ -253,6 +285,125 @@ export function computeScores(
     answeredCount,
     naCount,
     skippedCount,
+    sectionScores,
+    questionScores,
+  };
+}
+
+// ─── Legacy v2 scoring (read-only — for old completed assessments) ────────────
+
+export interface LegacyCategoryScore {
+  categoryId: string;
+  title: string;
+  weight: 1 | 2 | 3;
+  response: string | null;
+  earned: number;
+  max: number;
+  score: number | null;
+}
+
+export interface LegacyScoreResult {
+  overallScore: number;
+  riskLevel: RiskLevel;
+  earned: number;
+  max: number;
+  answeredCount: number;
+  naCount: number;
+  skippedCount: number;
+  categoryScores: LegacyCategoryScore[];
+}
+
+const LEGACY_VALUES = new Set([
+  "effective",
+  "implemented",
+  "partial",
+  "not_compliant",
+  "na",
+]);
+
+function legacyEarned(response: string, weight: number): number {
+  switch (response) {
+    case "effective":
+      return weight * 4;
+    case "implemented":
+      return weight * 3;
+    case "partial":
+      return weight * 2;
+    default:
+      return 0;
+  }
+}
+
+export function computeScoresLegacy(
+  responses: ResponseRow[],
+  bank: LegacyCategory[] = legacyCategories,
+): LegacyScoreResult {
+  const map = new Map<string, string>();
+  for (const r of responses) {
+    if (LEGACY_VALUES.has(r.response)) map.set(r.question_id, r.response);
+  }
+
+  let earned = 0;
+  let max = 0;
+  let answered = 0;
+  let na = 0;
+  let skipped = 0;
+
+  const categoryScores: LegacyCategoryScore[] = bank
+    .filter((c) => !c.deprecated)
+    .map((c) => {
+      const response = map.get(c.id) ?? null;
+      const catMax = c.weight * 4;
+
+      if (!response) {
+        skipped++;
+        return {
+          categoryId: c.id,
+          title: c.title,
+          weight: c.weight,
+          response: null,
+          earned: 0,
+          max: catMax,
+          score: null,
+        };
+      }
+      if (response === "na") {
+        na++;
+        return {
+          categoryId: c.id,
+          title: c.title,
+          weight: c.weight,
+          response,
+          earned: 0,
+          max: 0,
+          score: null,
+        };
+      }
+
+      answered++;
+      const e = legacyEarned(response, c.weight);
+      earned += e;
+      max += catMax;
+      return {
+        categoryId: c.id,
+        title: c.title,
+        weight: c.weight,
+        response,
+        earned: e,
+        max: catMax,
+        score: Math.round((e / catMax) * 100),
+      };
+    });
+
+  const overallScore = max === 0 ? 100 : Math.round((earned / max) * 100);
+  return {
+    overallScore,
+    riskLevel: getRiskLevel(overallScore),
+    earned,
+    max,
+    answeredCount: answered,
+    naCount: na,
+    skippedCount: skipped,
     categoryScores,
   };
 }
@@ -261,11 +412,12 @@ export function computeScores(
 
 /**
  * End-to-end scoring: fetch responses → compute → persist scores →
- * flip assessment status to complete.
+ * flip assessment status to complete. Dispatches to v2 or v3 based on
+ * the IDs present in the response rows.
  */
 export async function calculateScores(
   assessmentId: string,
-): Promise<ScoreResult> {
+): Promise<ScoreResult | LegacyScoreResult> {
   const supabase = createServiceRoleClient();
 
   const { data: responses, error: fetchError } = await supabase
@@ -277,17 +429,20 @@ export async function calculateScores(
     throw new Error(`Failed to load responses: ${fetchError.message}`);
   }
 
-  const result = computeScores((responses as ResponseRow[] | null) ?? []);
+  const rows = (responses as ResponseRow[] | null) ?? [];
+  const realRows = rows.filter((r) => !isSectionNotesId(r.question_id));
+  const model = detectModel(realRows.map((r) => r.question_id));
+  const result =
+    model === "v2" ? computeScoresLegacy(realRows) : computeScores(realRows);
 
-  // Upsert scores — reuse existing columns, map new model
   const { error: upsertError } = await supabase
     .from("assessment_scores")
     .upsert(
       {
         assessment_id: assessmentId,
-        sb553_score: result.overallScore, // single-section now
-        asis_score: null, // retired
-        hazard_score: null, // retired
+        sb553_score: result.overallScore,
+        asis_score: null,
+        hazard_score: null,
         overall_score: result.overallScore,
         risk_level: result.riskLevel,
       },
@@ -314,3 +469,7 @@ export async function calculateScores(
 
   return result;
 }
+
+// ─── Re-exports kept for callers that still import them ──────────────────────
+
+export type { Question, Section };

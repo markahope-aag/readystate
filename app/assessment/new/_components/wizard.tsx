@@ -4,10 +4,12 @@ import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
-  getActiveCategories,
-  getCriticalCategories,
-  type Category,
+  getActiveSections,
+  getCriticalQuestions,
+  isSectionNotesId,
+  sectionNotesId,
   type ResponseValue,
+  type Section,
 } from "@/lib/assessment/questions";
 import {
   createOrgAndAssessment,
@@ -16,7 +18,7 @@ import {
   type OrgInfoInput,
 } from "../actions";
 import { OrgInfoStep } from "./org-info-step";
-import { CategoryStep } from "./category-step";
+import { SectionStep } from "./section-step";
 import { ReviewStep } from "./review-step";
 import { SaveForLaterButton } from "./save-for-later-button";
 import { Progress } from "@/components/ui/progress";
@@ -41,35 +43,35 @@ export interface WizardInitialResponse {
   notes: string | null;
 }
 
-type ResponseState = Record<
-  string,
-  { response: ResponseValue | null; notes: string }
->;
+type AnswerState = Record<string, { response: ResponseValue | null }>;
+type NotesState = Record<Section["id"], string>;
 
 interface Screen {
-  kind: "org-info" | "category" | "review";
-  category?: Category;
+  kind: "org-info" | "section" | "review";
+  section?: Section;
   label: string;
 }
 
-const CATEGORIES = getActiveCategories();
+const SECTIONS = getActiveSections();
+const CRITICAL_QUESTIONS = getCriticalQuestions();
 
 function buildScreens(): Screen[] {
   const screens: Screen[] = [
     { kind: "org-info", label: "Organization & site" },
   ];
-  for (const cat of CATEGORIES) {
-    screens.push({
-      kind: "category",
-      category: cat,
-      label: cat.title,
-    });
+  for (const sec of SECTIONS) {
+    screens.push({ kind: "section", section: sec, label: sec.title });
   }
   screens.push({ kind: "review", label: "Review & submit" });
   return screens;
 }
 
 const SCREENS = buildScreens();
+
+const VALID_RESPONSES: ResponseValue[] = ["yes", "no", "partial", "na"];
+function asResponseValue(v: string): ResponseValue | null {
+  return (VALID_RESPONSES as string[]).includes(v) ? (v as ResponseValue) : null;
+}
 
 export function Wizard({
   initialAssessment,
@@ -84,13 +86,22 @@ export function Wizard({
   );
   const [screenIndex, setScreenIndex] = useState(initialAssessment ? 1 : 0);
 
-  const [responses, setResponses] = useState<ResponseState>(() => {
-    const initial: ResponseState = {};
+  const [answers, setAnswers] = useState<AnswerState>(() => {
+    const initial: AnswerState = {};
     for (const r of initialResponses) {
-      initial[r.question_id] = {
-        response: r.response as ResponseValue,
-        notes: r.notes ?? "",
-      };
+      if (isSectionNotesId(r.question_id)) continue;
+      const v = asResponseValue(r.response);
+      if (v) initial[r.question_id] = { response: v };
+    }
+    return initial;
+  });
+
+  const [notes, setNotes] = useState<NotesState>(() => {
+    const initial: NotesState = { plan: "", people: "", process: "", proof: "" };
+    for (const r of initialResponses) {
+      if (!isSectionNotesId(r.question_id)) continue;
+      const sec = r.question_id.replace(/^notes_/, "") as Section["id"];
+      if (sec in initial) initial[sec] = r.notes ?? "";
     }
     return initial;
   });
@@ -110,55 +121,53 @@ export function Wizard({
     toast.success("Assessment created");
   };
 
-  // ─── Category response ────────────────────────────────────────────
+  // ─── Per-question response ────────────────────────────────────────
   const handleResponseChange = useCallback(
-    async (categoryId: string, response: ResponseValue) => {
+    async (questionId: string, response: ResponseValue) => {
       if (!assessmentId) {
         toast.error("No active assessment");
         return;
       }
-      const existing = responses[categoryId];
-      setResponses((prev) => ({
+      const previous = answers[questionId] ?? null;
+      setAnswers((prev) => ({
         ...prev,
-        [categoryId]: { response, notes: prev[categoryId]?.notes ?? "" },
+        [questionId]: { response },
       }));
       const result = await saveResponse({
         assessmentId,
-        questionId: categoryId,
+        questionId,
         response,
-        notes: existing?.notes ?? null,
+        notes: null,
       });
       if (!result.ok) {
         toast.error(`Save failed: ${result.error}`);
-        setResponses((prev) => ({
+        setAnswers((prev) => ({
           ...prev,
-          [categoryId]: existing ?? { response: null, notes: "" },
+          [questionId]: previous ?? { response: null },
         }));
       }
     },
-    [assessmentId, responses],
+    [assessmentId, answers],
   );
 
+  // ─── Section evidence notes ──────────────────────────────────────
   const handleNotesChange = useCallback(
-    async (categoryId: string, notes: string) => {
+    async (sectionId: Section["id"], value: string) => {
       if (!assessmentId) return;
-      const existing = responses[categoryId];
-      if (!existing?.response) return;
-      setResponses((prev) => ({
-        ...prev,
-        [categoryId]: { ...prev[categoryId]!, notes },
-      }));
+      const previous = notes[sectionId];
+      setNotes((prev) => ({ ...prev, [sectionId]: value }));
       const result = await saveResponse({
         assessmentId,
-        questionId: categoryId,
-        response: existing.response,
-        notes,
+        questionId: sectionNotesId(sectionId),
+        response: "na", // pseudo-row sentinel
+        notes: value,
       });
       if (!result.ok) {
         toast.error(`Notes save failed: ${result.error}`);
+        setNotes((prev) => ({ ...prev, [sectionId]: previous }));
       }
     },
-    [assessmentId, responses],
+    [assessmentId, notes],
   );
 
   // ─── Finalize → redirect to thank-you ─────────────────────────────
@@ -173,22 +182,30 @@ export function Wizard({
     router.push(`/assessment/${assessmentId}/thank-you`);
   };
 
-  // ─── Gating: critical categories must be answered ─────────────────
+  // ─── Gating: critical questions in current section must be answered ──
   const canAdvance = useMemo(() => {
-    if (currentScreen.kind !== "category") return true;
-    const cat = currentScreen.category;
-    if (!cat || cat.weight < 3) return true;
-    return Boolean(responses[cat.id]?.response);
-  }, [currentScreen, responses]);
+    if (currentScreen.kind !== "section") return true;
+    const sec = currentScreen.section;
+    if (!sec) return true;
+    const unmet = sec.questions
+      .filter((q) => !q.deprecated && q.weight === 3)
+      .filter((q) => !answers[q.id]?.response);
+    return unmet.length === 0;
+  }, [currentScreen, answers]);
 
   // ─── Progress ─────────────────────────────────────────────────────
   const progress = useMemo(() => {
-    const total = CATEGORIES.length;
-    const answered = CATEGORIES.filter(
-      (c) => responses[c.id]?.response,
-    ).length;
+    let total = 0;
+    let answered = 0;
+    for (const s of SECTIONS) {
+      for (const q of s.questions) {
+        if (q.deprecated) continue;
+        total++;
+        if (answers[q.id]?.response) answered++;
+      }
+    }
     return { answered, total };
-  }, [responses]);
+  }, [answers]);
 
   const handleNext = () => {
     if (screenIndex < SCREENS.length - 1) setScreenIndex(screenIndex + 1);
@@ -197,9 +214,9 @@ export function Wizard({
     if (screenIndex > 0) setScreenIndex(screenIndex - 1);
   };
 
-  const handleJumpToCategory = (categoryId: string) => {
+  const handleJumpToSection = (sectionId: Section["id"]) => {
     const idx = SCREENS.findIndex(
-      (s) => s.kind === "category" && s.category?.id === categoryId,
+      (s) => s.kind === "section" && s.section?.id === sectionId,
     );
     if (idx >= 0) setScreenIndex(idx);
   };
@@ -218,8 +235,10 @@ export function Wizard({
               <p className="tabular-figures text-[0.8125rem] font-medium text-[color:var(--color-navy)]">
                 {progress.answered}
                 <span className="text-[color:var(--color-muted)]">
-                  {" / "}{progress.total}
-                </span>
+                  {" / "}
+                  {progress.total}
+                </span>{" "}
+                answered
               </p>
             </div>
             <Progress value={(progress.answered / progress.total) * 100} />
@@ -248,17 +267,15 @@ export function Wizard({
             </div>
           ) : (
             <div>
-              {currentScreen.category && (
-                <p className="eyebrow">
-                  — {String(screenIndex).padStart(2, "0")} · {currentScreen.category.statuteRef}
-                </p>
+              {currentScreen.section && (
+                <p className="eyebrow">— {currentScreen.section.eyebrow}</p>
               )}
               <h1 className="mt-5 text-[clamp(1.75rem,1.5rem+1vw,2.25rem)] font-bold tracking-[-0.012em] text-[color:var(--color-navy)]">
                 {currentScreen.label}
               </h1>
-              {currentScreen.category && (
+              {currentScreen.section && (
                 <p className="mt-4 max-w-2xl text-[0.9375rem] leading-[1.65] text-[color:var(--color-muted)]">
-                  {currentScreen.category.description}
+                  {currentScreen.section.description}
                 </p>
               )}
             </div>
@@ -274,24 +291,25 @@ export function Wizard({
         />
       )}
 
-      {currentScreen.kind === "category" && currentScreen.category && (
-        <CategoryStep
-          category={currentScreen.category}
-          response={responses[currentScreen.category.id]?.response ?? null}
-          notes={responses[currentScreen.category.id]?.notes ?? ""}
-          onResponseChange={(r) =>
-            handleResponseChange(currentScreen.category!.id, r)
-          }
+      {currentScreen.kind === "section" && currentScreen.section && (
+        <SectionStep
+          key={currentScreen.section.id}
+          section={currentScreen.section}
+          answers={answers}
+          notes={notes[currentScreen.section.id]}
+          onResponseChange={handleResponseChange}
           onNotesChange={(n) =>
-            handleNotesChange(currentScreen.category!.id, n)
+            handleNotesChange(currentScreen.section!.id, n)
           }
         />
       )}
 
       {currentScreen.kind === "review" && (
         <ReviewStep
-          responses={responses}
-          onJumpToCategory={handleJumpToCategory}
+          answers={answers}
+          notes={notes}
+          criticalQuestionIds={CRITICAL_QUESTIONS.map((q) => q.id)}
+          onJumpToSection={handleJumpToSection}
           onSubmit={handleFinalize}
         />
       )}
@@ -317,7 +335,7 @@ export function Wizard({
               <>
                 {!canAdvance && (
                   <span className="hidden text-[0.8125rem] text-[color:var(--color-muted)] md:inline">
-                    Required — select a compliance level to continue
+                    Required — answer the critical questions to continue
                   </span>
                 )}
                 <button

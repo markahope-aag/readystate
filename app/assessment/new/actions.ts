@@ -1,7 +1,11 @@
 "use server";
 
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import { calculateScores, type ScoreResult } from "@/lib/assessment/scoring";
+import {
+  calculateScores,
+  type LegacyScoreResult,
+  type ScoreResult,
+} from "@/lib/assessment/scoring";
 import { sendResumeLinkEmail } from "@/lib/email/send-report";
 
 /**
@@ -101,9 +105,10 @@ export async function createOrgAndAssessment(
 }
 
 /**
- * Idempotent upsert of a single category response. In v2 each
- * "question_id" is a category ID (e.g., "sb553_plan") and the response
- * is a compliance level (effective / implemented / partial / not_compliant / na).
+ * Idempotent upsert of a single response. In v3 each "question_id" is
+ * a question slug (e.g., "q_plan_exists") and the response is a y/n/
+ * partial/na value. Section evidence notes use pseudo-IDs like
+ * "notes_plan" with response="na" and the actual text in the notes column.
  */
 export async function saveResponse(input: {
   assessmentId: string;
@@ -132,7 +137,7 @@ export async function saveResponse(input: {
  */
 export async function finalizeAssessment(
   assessmentId: string,
-): Promise<ActionResult<ScoreResult>> {
+): Promise<ActionResult<ScoreResult | LegacyScoreResult>> {
   try {
     const result = await calculateScores(assessmentId);
     return { ok: true, data: result };

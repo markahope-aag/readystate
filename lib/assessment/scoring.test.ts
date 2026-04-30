@@ -1,177 +1,232 @@
 import { describe, it, expect } from "vitest";
 import {
   computeScores,
+  computeScoresLegacy,
   getRiskLevel,
   getRiskColor,
   getRiskLabel,
   type RiskLevel,
 } from "./scoring";
-import type { Category } from "./questions";
+import type {
+  LegacyCategory,
+  Question,
+  Section,
+} from "./questions";
 
 /**
- * v2 scoring tests. Uses stubbed category banks so tests stay stable
- * if real category weights change.
+ * v3 scoring tests. Uses stubbed section banks so tests stay stable
+ * when real question weights change.
  */
 
-function makeCat(
-  id: string,
-  weight: 1 | 2 | 3,
-): Category {
+function makeQ(id: string, weight: 1 | 2 | 3): Question {
   return {
     id,
-    title: "test",
-    statuteRef: "test",
-    description: "test",
-    subRequirements: [],
+    prompt: id,
+    responseType: "yes_no",
     weight,
   };
 }
 
-const bank: Category[] = [
-  makeCat("c1", 3),
-  makeCat("c2", 3),
-  makeCat("c3", 2),
-  makeCat("c4", 2),
-  makeCat("c5", 1),
+function makeSection(
+  id: Section["id"],
+  questions: Question[],
+): Section {
+  return {
+    id,
+    title: id,
+    eyebrow: id,
+    description: id,
+    questions,
+  };
+}
+
+const stubSections: Section[] = [
+  makeSection("plan", [makeQ("q1", 3), makeQ("q2", 3)]),
+  makeSection("people", [makeQ("q3", 2), makeQ("q4", 2)]),
+  makeSection("process", [makeQ("q5", 1)]),
+  makeSection("proof", [makeQ("q6", 3)]),
 ];
 
-describe("computeScores (v2 compliance selectors)", () => {
-  it("all effective → 100 → low risk", () => {
-    const responses = bank.map((c) => ({
-      question_id: c.id,
-      response: "effective",
-    }));
-    const result = computeScores(responses, bank);
+describe("computeScores (v3 yes/no/partial/na)", () => {
+  it("all yes → 100 → low risk", () => {
+    const responses = stubSections
+      .flatMap((s) => s.questions)
+      .map((q) => ({ question_id: q.id, response: "yes" }));
+    const result = computeScores(responses, stubSections);
 
     expect(result.overallScore).toBe(100);
     expect(result.riskLevel).toBe<RiskLevel>("low");
-    expect(result.answeredCount).toBe(5);
-  });
-
-  it("all implemented → 75 → moderate risk", () => {
-    const responses = bank.map((c) => ({
-      question_id: c.id,
-      response: "implemented",
-    }));
-    const result = computeScores(responses, bank);
-
-    expect(result.overallScore).toBe(75);
-    expect(result.riskLevel).toBe<RiskLevel>("moderate");
+    expect(result.answeredCount).toBe(6);
   });
 
   it("all partial → 50 → high risk", () => {
-    const responses = bank.map((c) => ({
-      question_id: c.id,
-      response: "partial",
-    }));
-    const result = computeScores(responses, bank);
+    const responses = stubSections
+      .flatMap((s) => s.questions)
+      .map((q) => ({ question_id: q.id, response: "partial" }));
+    const result = computeScores(responses, stubSections);
 
     expect(result.overallScore).toBe(50);
     expect(result.riskLevel).toBe<RiskLevel>("high");
   });
 
-  it("all not_compliant → 0 → critical", () => {
-    const responses = bank.map((c) => ({
-      question_id: c.id,
-      response: "not_compliant",
-    }));
-    const result = computeScores(responses, bank);
+  it("all no → 0 → critical", () => {
+    const responses = stubSections
+      .flatMap((s) => s.questions)
+      .map((q) => ({ question_id: q.id, response: "no" }));
+    const result = computeScores(responses, stubSections);
 
     expect(result.overallScore).toBe(0);
     expect(result.riskLevel).toBe<RiskLevel>("critical");
   });
 
-  it("N/A categories excluded from scoring", () => {
-    // c1(w3, effective)=12/12, c2(w3, na)=excluded, c3(w2, partial)=4/8
+  it("N/A questions excluded from scoring", () => {
+    // q1(w3,yes)=3/3, q2(w3,na)=excluded, q3(w2,partial)=1/2
+    // earned=3+1=4, max=3+2=5 → 80
     const responses = [
-      { question_id: "c1", response: "effective" },
-      { question_id: "c2", response: "na" },
-      { question_id: "c3", response: "partial" },
+      { question_id: "q1", response: "yes" },
+      { question_id: "q2", response: "na" },
+      { question_id: "q3", response: "partial" },
     ];
-    const result = computeScores(responses, bank);
+    const result = computeScores(responses, stubSections);
 
-    // earned=12+4=16, max=12+8=20 → 80
     expect(result.overallScore).toBe(80);
     expect(result.riskLevel).toBe<RiskLevel>("low");
     expect(result.naCount).toBe(1);
     expect(result.answeredCount).toBe(2);
-    expect(result.skippedCount).toBe(2); // c4, c5 have no response
+    expect(result.skippedCount).toBe(3); // q4, q5, q6
   });
 
-  it("skipped categories excluded like N/A", () => {
-    // Only c1 answered → effective 12/12 = 100
-    const responses = [{ question_id: "c1", response: "effective" }];
-    const result = computeScores(responses, bank);
+  it("skipped questions excluded like N/A", () => {
+    const responses = [{ question_id: "q1", response: "yes" }];
+    const result = computeScores(responses, stubSections);
 
     expect(result.overallScore).toBe(100);
-    expect(result.skippedCount).toBe(4);
+    expect(result.skippedCount).toBe(5);
     expect(result.answeredCount).toBe(1);
   });
 
-  it("mixed responses produce correct weighted score", () => {
-    // c1(w3, effective)=12/12, c2(w3, not_compliant)=0/12,
-    // c3(w2, implemented)=6/8, c4(w2, partial)=4/8, c5(w1, na)=excluded
+  it("notes_* pseudo-rows are ignored", () => {
     const responses = [
-      { question_id: "c1", response: "effective" },
-      { question_id: "c2", response: "not_compliant" },
-      { question_id: "c3", response: "implemented" },
-      { question_id: "c4", response: "partial" },
-      { question_id: "c5", response: "na" },
+      { question_id: "q1", response: "yes" },
+      { question_id: "notes_plan", response: "na" },
     ];
-    const result = computeScores(responses, bank);
-
-    // earned=12+0+6+4=22, max=12+12+8+8=40 → 55
-    expect(result.overallScore).toBe(55);
-    expect(result.riskLevel).toBe<RiskLevel>("high");
-    expect(result.naCount).toBe(1);
-    expect(result.answeredCount).toBe(4);
+    const result = computeScores(responses, stubSections);
+    expect(result.overallScore).toBe(100);
+    expect(result.skippedCount).toBe(5);
   });
 
-  it("per-category scores are computed correctly", () => {
+  it("mixed responses produce correct weighted score", () => {
+    // q1(w3,yes)=3/3, q2(w3,no)=0/3, q3(w2,partial)=1/2,
+    // q4(w2,yes)=2/2, q5(w1,na)=excluded, q6(w3,no)=0/3
     const responses = [
-      { question_id: "c1", response: "effective" },
-      { question_id: "c3", response: "partial" },
+      { question_id: "q1", response: "yes" },
+      { question_id: "q2", response: "no" },
+      { question_id: "q3", response: "partial" },
+      { question_id: "q4", response: "yes" },
+      { question_id: "q5", response: "na" },
+      { question_id: "q6", response: "no" },
     ];
-    const result = computeScores(responses, bank);
+    const result = computeScores(responses, stubSections);
 
-    const c1 = result.categoryScores.find((s) => s.categoryId === "c1")!;
-    expect(c1.score).toBe(100);
-    expect(c1.earned).toBe(12);
-    expect(c1.max).toBe(12);
+    // earned=3+0+1+2+0+0=6, max=3+3+2+2+0+3=13 → round(6/13×100)=46
+    expect(result.overallScore).toBe(46);
+    expect(result.riskLevel).toBe<RiskLevel>("high");
+    expect(result.naCount).toBe(1);
+    expect(result.answeredCount).toBe(5);
+  });
 
-    const c3 = result.categoryScores.find((s) => s.categoryId === "c3")!;
-    expect(c3.score).toBe(50);
-    expect(c3.earned).toBe(4);
-    expect(c3.max).toBe(8);
+  it("section scores are computed correctly", () => {
+    const responses = [
+      { question_id: "q1", response: "yes" },
+      { question_id: "q2", response: "yes" },
+      { question_id: "q3", response: "no" },
+      { question_id: "q4", response: "no" },
+    ];
+    const result = computeScores(responses, stubSections);
 
-    const c2 = result.categoryScores.find((s) => s.categoryId === "c2")!;
-    expect(c2.score).toBeNull(); // skipped
+    const plan = result.sectionScores.find((s) => s.sectionId === "plan")!;
+    expect(plan.score).toBe(100);
+    expect(plan.earned).toBe(6);
+    expect(plan.max).toBe(6);
+
+    const people = result.sectionScores.find((s) => s.sectionId === "people")!;
+    expect(people.score).toBe(0);
+    expect(people.earned).toBe(0);
+    expect(people.max).toBe(4);
+
+    const process = result.sectionScores.find(
+      (s) => s.sectionId === "process",
+    )!;
+    expect(process.score).toBeNull(); // q5 skipped
+  });
+
+  it("section is null when only N/A answered", () => {
+    const responses = [{ question_id: "q5", response: "na" }];
+    const result = computeScores(responses, stubSections);
+    const process = result.sectionScores.find(
+      (s) => s.sectionId === "process",
+    )!;
+    expect(process.score).toBeNull();
   });
 
   it("ignores unknown response values", () => {
     const responses = [
-      { question_id: "c1", response: "effective" },
-      { question_id: "c2", response: "maybe" }, // garbage → skipped
+      { question_id: "q1", response: "yes" },
+      { question_id: "q2", response: "maybe" }, // garbage → skipped
     ];
-    const result = computeScores(responses, bank);
-
-    expect(result.overallScore).toBe(100); // only c1 counted
-    expect(result.skippedCount).toBe(4); // c2 (garbage), c3, c4, c5
+    const result = computeScores(responses, stubSections);
+    expect(result.overallScore).toBe(100);
+    expect(result.skippedCount).toBe(5); // q2 (garbage), q3, q4, q5, q6
   });
 
   it("all-N/A defaults to 100", () => {
-    const responses = bank.map((c) => ({
-      question_id: c.id,
-      response: "na",
-    }));
-    const result = computeScores(responses, bank);
-
+    const responses = stubSections
+      .flatMap((s) => s.questions)
+      .map((q) => ({ question_id: q.id, response: "na" }));
+    const result = computeScores(responses, stubSections);
     expect(result.overallScore).toBe(100);
-    expect(result.naCount).toBe(5);
+    expect(result.naCount).toBe(6);
   });
 });
 
-describe("getRiskLevel (v2 bands)", () => {
+describe("computeScoresLegacy (v2 backward compat)", () => {
+  function makeCat(id: string, weight: 1 | 2 | 3): LegacyCategory {
+    return {
+      id,
+      title: id,
+      statuteRef: id,
+      description: id,
+      subRequirements: [],
+      weight,
+    };
+  }
+
+  const bank: LegacyCategory[] = [
+    makeCat("c1", 3),
+    makeCat("c2", 2),
+  ];
+
+  it("scores effective/implemented/partial/not_compliant", () => {
+    const responses = [
+      { question_id: "c1", response: "effective" }, // 12/12
+      { question_id: "c2", response: "partial" }, // 4/8
+    ];
+    const result = computeScoresLegacy(responses, bank);
+    expect(result.overallScore).toBe(80); // 16/20
+  });
+
+  it("excludes N/A", () => {
+    const responses = [
+      { question_id: "c1", response: "effective" },
+      { question_id: "c2", response: "na" },
+    ];
+    const result = computeScoresLegacy(responses, bank);
+    expect(result.overallScore).toBe(100);
+    expect(result.naCount).toBe(1);
+  });
+});
+
+describe("getRiskLevel (bands)", () => {
   it("classifies boundaries correctly", () => {
     expect(getRiskLevel(100)).toBe<RiskLevel>("low");
     expect(getRiskLevel(80)).toBe<RiskLevel>("low");

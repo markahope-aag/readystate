@@ -1,8 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import { getCategoryById, type ResponseValue } from "@/lib/assessment/questions";
-import type { RiskLevel } from "@/lib/assessment/scoring";
+import {
+  detectModel,
+  getActiveSections,
+  isSectionNotesId,
+  type ResponseValue,
+} from "@/lib/assessment/questions";
+import { computeScores, type RiskLevel } from "@/lib/assessment/scoring";
 import {
   AssessmentReport,
   type ReportGap,
@@ -42,21 +47,65 @@ export async function GET(
 
   const { data: responses } = await supabase
     .from("assessment_responses")
-    .select("question_id, response")
+    .select("question_id, response, notes")
     .eq("assessment_id", assessmentId);
 
-  // Build gap list — categories rated below "effective"
+  const rows = (responses ?? []) as Array<{
+    question_id: string;
+    response: string;
+    notes: string | null;
+  }>;
+  const realRows = rows.filter((r) => !isSectionNotesId(r.question_id));
+  const model = detectModel(realRows.map((r) => r.question_id));
+
+  if (model === "v2") {
+    return NextResponse.json(
+      {
+        error:
+          "PDF download is unavailable for legacy v2 assessments. View results in the browser.",
+      },
+      { status: 410 },
+    );
+  }
+
+  const result = computeScores(
+    realRows.map((r) => ({ question_id: r.question_id, response: r.response })),
+  );
+
+  // Section notes
+  const sectionNotes: Record<string, string> = {};
+  for (const r of rows) {
+    if (isSectionNotesId(r.question_id) && r.notes) {
+      sectionNotes[r.question_id.replace(/^notes_/, "")] = r.notes;
+    }
+  }
+
+  // Build gap list
+  const responseMap = new Map<string, ResponseValue>();
+  for (const r of realRows) {
+    if (
+      r.response === "yes" ||
+      r.response === "no" ||
+      r.response === "partial" ||
+      r.response === "na"
+    ) {
+      responseMap.set(r.question_id, r.response);
+    }
+  }
   const gaps: ReportGap[] = [];
-  for (const r of (responses ?? []) as Array<{ question_id: string; response: string }>) {
-    if (r.response === "effective" || r.response === "na") continue;
-    const category = getCategoryById(r.question_id);
-    if (!category) continue;
-    gaps.push({ category, response: r.response as ResponseValue });
+  for (const section of getActiveSections()) {
+    for (const q of section.questions) {
+      if (q.deprecated) continue;
+      const response = responseMap.get(q.id);
+      if (!response || response === "yes" || response === "na") continue;
+      gaps.push({ question: q, section, response });
+    }
   }
   gaps.sort((a, b) => {
-    if (b.category.weight !== a.category.weight) return b.category.weight - a.category.weight;
-    const severity: Record<string, number> = { not_compliant: 3, partial: 2, implemented: 1 };
-    return (severity[b.response] ?? 0) - (severity[a.response] ?? 0);
+    if (b.question.weight !== a.question.weight)
+      return b.question.weight - a.question.weight;
+    const sev: Record<string, number> = { no: 2, partial: 1 };
+    return (sev[b.response] ?? 0) - (sev[a.response] ?? 0);
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -80,6 +129,8 @@ export async function GET(
           overallScore: scoresRow.overall_score ?? 0,
           riskLevel: (scoresRow.risk_level ?? "critical") as RiskLevel,
         }}
+        sectionScores={result.sectionScores}
+        sectionNotes={sectionNotes}
         gaps={gaps}
         generatedAt={new Date()}
       />,

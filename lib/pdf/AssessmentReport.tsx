@@ -1,8 +1,9 @@
 /**
- * Kestralis — ReadyState Assessment Report PDF (v2)
+ * Kestralis — ReadyState Assessment Report PDF (v3)
  *
- * SB 553 category-based scoring model. Ten statutory categories, each
- * evaluated as Effective / Implemented / Partial / Not Compliant / N/A.
+ * Four thematic sections (Plan / People / Process / Proof). Each gap is a
+ * specific question rated below Yes; remediation is a per-question or
+ * per-section recommendation.
  */
 
 /* eslint-disable react/no-unknown-property */
@@ -14,10 +15,20 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
-import type { Category, ResponseValue } from "@/lib/assessment/questions";
-import { RESPONSE_OPTIONS } from "@/lib/assessment/questions";
-import { getRiskLabel, type RiskLevel } from "@/lib/assessment/scoring";
-import { recommendations } from "@/lib/assessment/recommendations";
+import type {
+  Question,
+  ResponseValue,
+  Section,
+} from "@/lib/assessment/questions";
+import {
+  recommendations,
+  sectionRecommendations,
+} from "@/lib/assessment/recommendations";
+import {
+  getRiskLabel,
+  type RiskLevel,
+  type SectionScore,
+} from "@/lib/assessment/scoring";
 
 // ─── Font registration ──────────────────────────────────────────────────────
 
@@ -78,7 +89,8 @@ export interface ReportScores {
 }
 
 export interface ReportGap {
-  category: Category;
+  question: Question;
+  section: Section;
   response: ResponseValue;
 }
 
@@ -86,6 +98,8 @@ export interface AssessmentReportProps {
   assessment: ReportAssessment;
   organization: ReportOrganization | null;
   scores: ReportScores;
+  sectionScores: SectionScore[];
+  sectionNotes: Record<string, string>;
   gaps: ReportGap[];
   generatedAt: Date;
 }
@@ -107,13 +121,11 @@ const p = {
 
 function toneForResponse(r: ResponseValue): string {
   switch (r) {
-    case "effective":
+    case "yes":
       return "#059669";
-    case "implemented":
-      return p.forestSoft;
     case "partial":
       return "#D97706";
-    case "not_compliant":
+    case "no":
       return p.riskRed;
     case "na":
       return p.warmMuted;
@@ -131,6 +143,13 @@ function toneForRisk(level: RiskLevel): string {
     case "critical":
       return p.riskRed;
   }
+}
+
+function toneForScore(score: number): string {
+  if (score >= 80) return "#059669";
+  if (score >= 60) return p.forestSoft;
+  if (score >= 40) return "#D97706";
+  return p.riskRed;
 }
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
@@ -277,15 +296,23 @@ function CoverPage({
   );
 }
 
-function ScorecardPage({ scores }: { scores: ReportScores }) {
+function ScorecardPage({
+  scores,
+  sectionScores,
+  sectionNotes,
+}: {
+  scores: ReportScores;
+  sectionScores: SectionScore[];
+  sectionNotes: Record<string, string>;
+}) {
   const riskTone = toneForRisk(scores.riskLevel);
   const riskMeta = getRiskLabel(scores.riskLevel);
   return (
-    <Page size="LETTER" style={s.page}>
+    <Page size="LETTER" style={s.page} wrap>
       <Header />
       <View style={s.sectionIntro}>
         <View style={s.sectionLeft}>
-          <Text style={s.eyebrow}>Overall score</Text>
+          <Text style={s.eyebrow}>Section scorecard</Text>
           <Text style={s.h1}>
             The <Text style={{ fontStyle: "italic", color: p.forest }}>scorecard</Text>
             <Text style={{ color: p.warmMuted }}>.</Text>
@@ -293,22 +320,93 @@ function ScorecardPage({ scores }: { scores: ReportScores }) {
         </View>
         <View style={s.sectionRight}>
           <Text style={s.body}>
-            Your SB 553 prevention program scored{" "}
-            {scores.overallScore} out of 100, placing it in the{" "}
-            {riskMeta.label.toLowerCase()} band.
+            Your SB 553 prevention program scored {scores.overallScore} out of 100,
+            placing it in the {riskMeta.label.toLowerCase()} band. Section
+            scores show where to focus first.
           </Text>
         </View>
       </View>
 
-      <View style={{ marginTop: 24, paddingTop: 28, borderTopWidth: 1.5, borderTopColor: p.ink, flexDirection: "row" }}>
+      {/* Per-section rows */}
+      {sectionScores.map((ss, idx) => {
+        const note = sectionNotes[ss.sectionId];
+        return (
+          <View
+            key={ss.sectionId}
+            wrap={false}
+            style={{
+              flexDirection: "row",
+              borderTopWidth: 0.5,
+              borderTopColor: p.ink,
+              paddingVertical: 18,
+            }}
+          >
+            <Text
+              style={{
+                width: "6%",
+                fontWeight: 300,
+                fontStyle: "italic",
+                fontSize: 18,
+                color: p.forest,
+                lineHeight: 1,
+              }}
+            >
+              {String(idx + 1).padStart(2, "0")}
+            </Text>
+            <View style={{ width: "60%", paddingRight: 16 }}>
+              <Text style={{ fontSize: 16, fontWeight: 400, lineHeight: 1.2, color: p.ink }}>
+                {ss.title}
+              </Text>
+              <Text style={{ marginTop: 4, fontSize: 8, fontStyle: "italic", color: p.warmMutedSoft }}>
+                {ss.answeredCount} of {ss.totalQuestions} answered
+              </Text>
+              {note && (
+                <Text
+                  style={{
+                    marginTop: 8,
+                    paddingLeft: 8,
+                    borderLeftWidth: 1,
+                    borderLeftColor: p.sand,
+                    fontSize: 9,
+                    fontStyle: "italic",
+                    color: p.warmMuted,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {note}
+                </Text>
+              )}
+            </View>
+            <View style={{ width: "34%", alignItems: "flex-end" }}>
+              {ss.score === null ? (
+                <Text style={{ fontSize: 24, fontStyle: "italic", color: p.warmMutedSoft }}>—</Text>
+              ) : (
+                <Text
+                  style={{
+                    fontWeight: 300,
+                    fontSize: 48,
+                    lineHeight: 1,
+                    color: toneForScore(ss.score),
+                  }}
+                >
+                  {ss.score}
+                </Text>
+              )}
+            </View>
+          </View>
+        );
+      })}
+
+      {/* Overall score block */}
+      <View style={{ marginTop: 28, paddingTop: 24, borderTopWidth: 1.5, borderTopColor: p.ink, flexDirection: "row" }}>
         <View style={{ flex: 6, paddingRight: 20 }}>
           <Text style={s.eyebrow}>Overall program rating</Text>
-          <Text style={{ marginTop: 12, fontWeight: 300, fontSize: 160, lineHeight: 0.82, letterSpacing: -5, color: riskTone }}>
+          <Text style={{ marginTop: 12, fontWeight: 300, fontSize: 140, lineHeight: 0.82, letterSpacing: -5, color: riskTone }}>
             {scores.overallScore}
           </Text>
         </View>
         <View style={{ flex: 5, paddingLeft: 12, paddingTop: 16 }}>
-          <Text style={{ fontWeight: 300, fontStyle: "italic", fontSize: 32, lineHeight: 0.95, color: riskTone }}>
+          <Text style={{ fontWeight: 300, fontStyle: "italic", fontSize: 28, lineHeight: 0.95, color: riskTone }}>
             {riskMeta.label}<Text style={{ color: p.warmMuted }}>.</Text>
           </Text>
           <Text style={{ marginTop: 14, fontSize: 10, lineHeight: 1.65, color: p.ink }}>
@@ -337,27 +435,48 @@ function GapAnalysisPage({ gaps }: { gaps: ReportGap[] }) {
         <View style={s.sectionRight}>
           <Text style={s.body}>
             {gaps.length === 0
-              ? "No gaps identified. Every category rated Effective or N/A."
-              : `${gaps.length} ${gaps.length === 1 ? "category" : "categories"} below full compliance, sorted by severity.`}
+              ? "No gaps identified. Every question rated Yes or N/A."
+              : `${gaps.length} ${gaps.length === 1 ? "question" : "questions"} below Yes, sorted by severity.`}
           </Text>
         </View>
       </View>
 
       {gaps.map((gap, idx) => {
-        const opt = RESPONSE_OPTIONS.find((o) => o.value === gap.response);
         const tone = toneForResponse(gap.response);
-        const priority = gap.category.weight === 3 ? "Critical" : gap.category.weight === 2 ? "Important" : "Informational";
+        const priority = gap.question.weight === 3 ? "Critical" : gap.question.weight === 2 ? "Important" : "Informational";
+        const responseLabel =
+          gap.response === "yes"
+            ? "Yes"
+            : gap.response === "no"
+              ? "No"
+              : gap.response === "partial"
+                ? "Partial"
+                : "N/A";
         return (
-          <View key={gap.category.id} wrap={false} style={{ flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: p.ink, paddingVertical: 16 }}>
-            <Text style={{ width: "6%", fontWeight: 300, fontStyle: "italic", fontSize: 18, color: p.forest, lineHeight: 1 }}>
+          <View
+            key={gap.question.id}
+            wrap={false}
+            style={{ flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: p.ink, paddingVertical: 14 }}
+          >
+            <Text style={{ width: "6%", fontWeight: 300, fontStyle: "italic", fontSize: 16, color: p.forest, lineHeight: 1 }}>
               {String(idx + 1).padStart(2, "0")}
             </Text>
-            <View style={{ width: "50%", paddingRight: 12 }}>
-              <Text style={{ fontSize: 14, fontWeight: 400, lineHeight: 1.25, color: p.ink }}>{gap.category.title}</Text>
-              <Text style={{ marginTop: 4, fontSize: 8, fontStyle: "italic", color: p.warmMutedSoft }}>{gap.category.statuteRef}</Text>
+            <View style={{ width: "62%", paddingRight: 12 }}>
+              <Text style={{ fontSize: 7.5, fontWeight: 500, color: gap.question.weight === 3 ? p.riskRed : p.warmMuted, textTransform: "uppercase", letterSpacing: 1.4, marginBottom: 4 }}>
+                {gap.section.title} · {priority}
+              </Text>
+              <Text style={{ fontSize: 11, fontWeight: 400, lineHeight: 1.3, color: p.ink }}>
+                {gap.question.prompt}
+              </Text>
+              {gap.question.statuteRef && (
+                <Text style={{ marginTop: 4, fontSize: 7.5, fontStyle: "italic", color: p.warmMutedSoft }}>
+                  {gap.question.statuteRef}
+                </Text>
+              )}
             </View>
-            <Text style={{ width: "22%", fontSize: 12, fontStyle: "italic", color: tone }}>{opt?.label ?? gap.response}</Text>
-            <Text style={{ width: "22%", fontSize: 12, fontStyle: "italic", textAlign: "right", color: gap.category.weight === 3 ? p.riskRed : p.warmMuted }}>{priority}</Text>
+            <View style={{ width: "32%", alignItems: "flex-end" }}>
+              <Text style={{ fontSize: 12, fontStyle: "italic", color: tone }}>{responseLabel}</Text>
+            </View>
           </View>
         );
       })}
@@ -368,10 +487,7 @@ function GapAnalysisPage({ gaps }: { gaps: ReportGap[] }) {
 }
 
 function RecommendationsPage({ gaps }: { gaps: ReportGap[] }) {
-  const criticalGaps = gaps.filter(
-    (g) => g.category.weight === 3 && g.response === "not_compliant",
-  );
-
+  const critical = gaps.filter((g) => g.question.weight === 3 && g.response === "no");
   return (
     <Page size="LETTER" style={s.page} wrap>
       <Header />
@@ -386,30 +502,38 @@ function RecommendationsPage({ gaps }: { gaps: ReportGap[] }) {
         </View>
         <View style={s.sectionRight}>
           <Text style={s.body}>
-            {criticalGaps.length === 0
-              ? "No critical categories are rated Non-Compliant. Review the Gap Analysis for areas to improve."
-              : `${criticalGaps.length} critical ${criticalGaps.length === 1 ? "category" : "categories"} rated Non-Compliant. These carry direct citation risk.`}
+            {critical.length === 0
+              ? "No critical questions are rated No. Review the gap analysis for areas to improve."
+              : `${critical.length} critical ${critical.length === 1 ? "question is" : "questions are"} rated No. These carry direct citation risk.`}
           </Text>
         </View>
       </View>
 
-      {gaps.filter((g) => g.response !== "na").map((gap, idx) => {
-        const rec = recommendations[gap.category.id];
+      {gaps.map((gap, idx) => {
+        const rec =
+          recommendations[gap.question.id] ??
+          sectionRecommendations[gap.section.id];
         if (!rec) return null;
         return (
-          <View key={gap.category.id} wrap={false} style={{ flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: p.ink, paddingVertical: 20 }}>
-            <Text style={{ width: "6%", fontWeight: 300, fontStyle: "italic", fontSize: 18, color: gap.category.weight === 3 ? p.riskRed : p.forest, lineHeight: 1 }}>
+          <View
+            key={gap.question.id}
+            wrap={false}
+            style={{ flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: p.ink, paddingVertical: 18 }}
+          >
+            <Text style={{ width: "6%", fontWeight: 300, fontStyle: "italic", fontSize: 16, color: gap.question.weight === 3 ? p.riskRed : p.forest, lineHeight: 1 }}>
               {String(idx + 1).padStart(2, "0")}
             </Text>
             <View style={{ width: "40%", paddingRight: 12 }}>
-              <Text style={{ fontSize: 7.5, fontWeight: 500, color: gap.category.weight === 3 ? p.riskRed : p.warmMuted, textTransform: "uppercase", letterSpacing: 1.4, marginBottom: 6 }}>
-                {gap.category.weight === 3 ? "Critical" : "Important"} · {gap.category.id}
+              <Text style={{ fontSize: 7.5, fontWeight: 500, color: gap.question.weight === 3 ? p.riskRed : p.warmMuted, textTransform: "uppercase", letterSpacing: 1.4, marginBottom: 6 }}>
+                {gap.section.title} · {gap.question.weight === 3 ? "Critical" : "Important"}
               </Text>
-              <Text style={{ fontSize: 12, fontWeight: 400, lineHeight: 1.25, color: p.ink }}>{gap.category.title}</Text>
+              <Text style={{ fontSize: 11, fontWeight: 400, lineHeight: 1.3, color: p.ink }}>
+                {gap.question.prompt}
+              </Text>
             </View>
             <View style={{ width: "54%" }}>
               <Text style={{ fontSize: 7.5, fontWeight: 500, color: p.warmMuted, textTransform: "uppercase", letterSpacing: 1.6, marginBottom: 6 }}>Remediation</Text>
-              <Text style={{ fontSize: 10, lineHeight: 1.65, color: p.ink, borderLeftWidth: 1, borderLeftColor: p.forest, paddingLeft: 10 }}>
+              <Text style={{ fontSize: 9.5, lineHeight: 1.6, color: p.ink, borderLeftWidth: 1, borderLeftColor: p.forest, paddingLeft: 10 }}>
                 {rec}
               </Text>
             </View>
@@ -428,6 +552,8 @@ export function AssessmentReport({
   assessment,
   organization,
   scores,
+  sectionScores,
+  sectionNotes,
   gaps,
   generatedAt,
 }: AssessmentReportProps) {
@@ -445,7 +571,11 @@ export function AssessmentReport({
         scores={scores}
         generatedAt={generatedAt}
       />
-      <ScorecardPage scores={scores} />
+      <ScorecardPage
+        scores={scores}
+        sectionScores={sectionScores}
+        sectionNotes={sectionNotes}
+      />
       <GapAnalysisPage gaps={gaps} />
       <RecommendationsPage gaps={gaps} />
     </Document>
